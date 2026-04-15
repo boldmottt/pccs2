@@ -39,6 +39,10 @@ class BlendProcessor:
                 # Hardener adds to Transparent Gloss
                 current = effective_components.get(transparent_gloss_id, 0.0)
                 effective_components[transparent_gloss_id] = current + amount
+            elif ink_id.lower() == "transparent" or ink_id.lower() == "transparent_gloss":
+                # Normalize transparent variants to transparent_gloss_id
+                current = effective_components.get(transparent_gloss_id, 0.0)
+                effective_components[transparent_gloss_id] = current + amount
             else:
                 # Others keep as is
                 current = effective_components.get(ink_id, 0.0)
@@ -54,9 +58,10 @@ class BlendProcessor:
                 normalized[ink_id] = amount / color_sum
 
         # Dilution factor
-        if thinner_amount and thinner_amount > 0:
+        if color_sum > 0:
             dilution_factor = color_sum / (color_sum + thinner_amount)
         else:
+            # When no color components, dilution factor defaults to 1.0
             dilution_factor = 1.0
 
         return {
