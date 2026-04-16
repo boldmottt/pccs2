@@ -54,10 +54,19 @@ export interface Sample {
 export interface Ink {
   inkId: string
   inkName: string
-  category: 'PRIMARY' | 'AUXILIARY' | 'TRANSPARENT' | 'HARDENER' | 'THINNER'
+  inkCategory: 'COLOR' | 'TRANSPARENT' | 'EFFECT' | 'ADDITIVE'
+  manufacturer?: string
   isBlendInk: boolean
-  solidColorSci: ColorXYZ
-  solidColorSce: ColorXYZ
-  blendRecipe?: Layer[]
+  blendRecipe?: Record<string, unknown>
+  solidColorSci?: ColorXYZ
+  solidColorSce?: ColorXYZ
+  deltaSciSce?: number
+  glossIndex?: number
+  glossGU?: number
+  viscosity?: number
+  density?: number
+  memo?: string
+  registeredAt: string
+  updatedAt: string
 }
 
