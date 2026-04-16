@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { Providers } from '@/lib/providers/QueryClientProvider'
 
 export const metadata: Metadata = {
   title: 'PCCS2 - Pad-print Color Correction System',
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="min-h-screen bg-gray-50">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
