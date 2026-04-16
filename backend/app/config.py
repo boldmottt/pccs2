@@ -1,9 +1,11 @@
 from functools import lru_cache
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings"""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # App
     APP_NAME: str = "PCCS2"
@@ -13,12 +15,13 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/pccs2"
 
+    # API
+    API_URL: str = "http://localhost:8000"
+    SECRET_KEY: str = "dev-secret-key-not-for-production"
+
     # ML
     ML_MODEL_PATH: str = "models/"
     CLOUD_TRAINING_ENABLED: bool = False
-
-    class Config:
-        env_file = ".env"
 
 
 @lru_cache()
