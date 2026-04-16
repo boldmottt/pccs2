@@ -1,9 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from enum import Enum
 
 
-class InkCategoryEnum(str):
+class InkCategoryEnum(str, Enum):
     COLOR = "COLOR"
     TRANSPARENT = "TRANSPARENT"
     EFFECT = "EFFECT"
@@ -11,6 +12,8 @@ class InkCategoryEnum(str):
 
 
 class InkCreate(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     ink_name: str = Field(..., min_length=1, max_length=200)
     ink_category: InkCategoryEnum = InkCategoryEnum.COLOR
     manufacturer: Optional[str] = None

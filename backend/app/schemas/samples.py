@@ -8,6 +8,11 @@ class InkItem(BaseModel):
     amount: float = Field(..., ge=0.0)
 
 
+class CopyLayerRequest(BaseModel):
+    source_layer_number: int
+    target_layer_number: int
+
+
 class LayerInput(BaseModel):
     layer_number: int
     ink_items: List[InkItem]

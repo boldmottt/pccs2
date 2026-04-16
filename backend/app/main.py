@@ -6,7 +6,7 @@ from sqlalchemy.orm import declarative_base
 from app.config import get_settings
 from app.database.session import engine
 from app.models.domain import Base
-from app.api.routers import projects, patterns, rounds, samples, inks, match
+from app.api.routers import projects, patterns, rounds, samples, inks, match, predict
 
 settings = get_settings()
 
@@ -32,6 +32,7 @@ app.include_router(rounds.router)
 app.include_router(samples.router)
 app.include_router(inks.router)
 app.include_router(match.router)
+app.include_router(predict.router)
 
 
 @app.on_event("startup")

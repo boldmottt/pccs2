@@ -185,3 +185,7 @@ class HybridEngine:
                 scores[channel] = None
 
         return scores
+
+
+# Global singleton instance
+hybrid_engine = HybridEngine()
