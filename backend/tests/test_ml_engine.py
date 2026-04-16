@@ -49,8 +49,14 @@ class TestExtractFeatures:
         features = engine._extract_features(recipe)
 
         assert isinstance(features, np.ndarray)
-        # Should have features for: K/S ratios (1), thickness (1), base L,a,b (3) = 5
-        assert len(features) == 5
+        # Should have padded features: max 4 layers x 2 + 3 base = 11
+        # First layer: k_over_s=0.5, thickness=1.0, then 3 padded layers (zeros), then base L,a,b
+        assert len(features) == 11
+        assert features[0] == pytest.approx(0.5, rel=1e-10)  # k_over_s
+        assert features[1] == pytest.approx(1.0, rel=1e-10)  # thickness
+        assert features[2] == 0.0  # padded
+        assert features[3] == 0.0  # padded
+        assert features[8] == pytest.approx(100.0, rel=1e-10)  # base L
 
     @pytest.mark.unit
     def test_extract_features_multiple_layers(self):
@@ -68,8 +74,12 @@ class TestExtractFeatures:
         features = engine._extract_features(recipe)
 
         assert isinstance(features, np.ndarray)
-        # Should have features for: 3 inks (K/S), 3 layers (thickness), 3 base = 9
-        assert len(features) == 9
+        # Should have features for: 3 layers x 2 + 1 padded layer x 2 + 3 base = 11
+        assert len(features) == 11
+        assert features[0] == pytest.approx(0.5, rel=1e-10)  # layer 1 k_over_s
+        assert features[2] == pytest.approx(0.3, rel=1e-10)  # layer 2 k_over_s
+        assert features[4] == pytest.approx(0.7, rel=1e-10)  # layer 3 k_over_s
+        assert features[10] == pytest.approx(0.0, rel=1e-10)  # base b
 
     @pytest.mark.unit
     def test_extract_features_empty_layers(self):
@@ -83,11 +93,12 @@ class TestExtractFeatures:
         features = engine._extract_features(recipe)
 
         assert isinstance(features, np.ndarray)
-        # Should have base color features only
-        assert len(features) == 3
-        assert features[0] == 100.0  # L
-        assert features[1] == 0.0  # a
-        assert features[2] == 0.0  # b
+        # All layer features should be zero (padded), base color at end
+        assert len(features) == 11
+        assert all(features[i] == 0.0 for i in range(8))  # 4 padded layers x 2
+        assert features[8] == pytest.approx(100.0, rel=1e-10)  # base L
+        assert features[9] == pytest.approx(0.0, rel=1e-10)  # base a
+        assert features[10] == pytest.approx(0.0, rel=1e-10)  # base b
 
     @pytest.mark.unit
     def test_extract_features_with_dilution(self):

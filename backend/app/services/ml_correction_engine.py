@@ -190,13 +190,17 @@ class MLCorrectionEngine:
                 - base_color: Dict with L, a, b values
 
         Returns:
-            Feature vector as numpy array
+            Feature vector as numpy array (padded to consistent size)
         """
         features = []
 
         # Extract K/S ratios and thicknesses for each layer
         layers = recipe.get("layers", [])
-        for layer in layers:
+        max_layers = 4  # Maximum expected layers for feature padding
+        layer_count = min(len(layers), max_layers)
+
+        for i in range(layer_count):
+            layer = layers[i]
             k_over_s = layer.get("k_over_s", 0.0)
             thickness = layer.get("thickness", 1.0)
 
@@ -206,6 +210,10 @@ class MLCorrectionEngine:
 
             features.append(effective_k_over_s)
             features.append(thickness)
+
+        # Pad with zeros if fewer than max_layers
+        remaining_slots = max_layers - layer_count
+        features.extend([0.0, 0.0] * remaining_slots)
 
         # Add base color features
         base_color = recipe.get("base_color", {"L": 100.0, "a": 0.0, "b": 0.0})
