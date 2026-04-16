@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: pccs2-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://pccs:pccs@db:5432/pccs2
+      - API_URL=http://localhost:8000
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - pccs2-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: pccs2-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - pccs2-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: pccs2-db
+    environment:
+      - POSTGRES_USER=pccs
+      - POSTGRES_PASSWORD=pccs
+      - POSTGRES_DB=pccs2
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pccs -d pccs2"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pccs2-network
+
+volumes:
+  postgres_data:
+
+networks:
+  pccs2-network:
+    driver: bridge

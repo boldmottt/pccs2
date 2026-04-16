@@ -48,26 +48,31 @@ export function SelectTrigger({ className, children, ...props }: SelectTriggerPr
   )
 }
 
-interface SelectContentWrapperProps {
+interface SelectContentProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
 
-export function SelectContentWrapper({ children }: SelectContentWrapperProps) {
-  const [isOpen, setIsOpen] = useState(false)
-
+export function SelectContent({ className, children, ...props }: SelectContentProps) {
   return (
-    <div className="relative">
-      {isOpen && (
-        <div
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {children}
-        </div>
+    <div
+      className={cn(
+        'absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto',
+        className
       )}
-      <SelectTrigger onClick={() => setIsOpen(true)}>Trigger</SelectTrigger>
+      {...props}
+    >
+      {children}
     </div>
   )
+}
+
+interface SelectValueProps {
+  placeholder?: string
+  children?: React.ReactNode
+}
+
+export function SelectValue({ placeholder, children }: SelectValueProps) {
+  return <span>{children || placeholder}</span>
 }
 
 interface SelectItemProps extends React.LiHTMLAttributes<HTMLLIElement> {

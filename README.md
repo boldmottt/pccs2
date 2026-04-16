@@ -93,12 +93,60 @@ Frontend: http://localhost:3000
 ### Docker Setup
 
 ```bash
-# Build and run with Docker
+# Build and run with Docker Compose
 docker-compose up -d
 
 # View logs
 docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Stop and remove volumes (careful: this deletes database!)
+docker-compose down -v
 ```
+
+#### Docker Compose Services
+
+- **backend** (port 8000): FastAPI backend with ML prediction engine
+- **frontend** (port 3000): Next.js React application
+- **db** (port 5432): PostgreSQL 15 database
+
+#### Access Points
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
+- Health check: http://localhost:8000/api/predict/health
+
+#### Environment Configuration
+
+1. Copy environment templates:
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+```
+
+2. Edit `backend/.env` with your database credentials
+3. Edit `frontend/.env.local` with your backend API URL
+
+#### Production Deployment
+
+For production, ensure you:
+- Use strong secrets in `.env` files (generate with `openssl rand -hex 32`)
+- Set `DATABASE_URL` to a production PostgreSQL instance
+- Configure reverse proxy (nginx/Apache) with SSL
+- Use environment-specific docker-compose.override.yml for production settings
+
+### Deployment Checklist
+
+- [ ] Set strong `SECRET_KEY` in production
+- [ ] Use external PostgreSQL (RDS, Cloud SQL, etc.)
+- [ ] Configure CORS for frontend domain
+- [ ] Enable HTTPS with valid SSL certificate
+- [ ] Set up database backups
+- [ ] Configure monitoring and logging
+- [ ] Set environment variables for API keys (if any)
 
 ## API Endpoints
 
