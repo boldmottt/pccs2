@@ -1,3 +1,6 @@
+import type { ColorXYZ } from './color'
+export type { ColorXYZ }
+
 export interface Project {
   projectId: string
   projectName: string
@@ -58,4 +61,3 @@ export interface Ink {
   blendRecipe?: Layer[]
 }
 
-export type { ColorXYZ } from './color'

@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { convertLabToRgb } from '@/lib/types/color'
 
 interface ColorSwatchProps {
@@ -19,10 +20,7 @@ export function ColorSwatch({ color, label, size = 'md' }: ColorSwatchProps) {
   return (
     <div className="flex flex-col items-center gap-1">
       <div
-        className={cn(
-          'rounded-lg shadow-md border border-gray-200',
-          sizeClasses[size]
-        )}
+        className={cn('rounded-lg shadow-md border border-gray-200', sizeClasses[size])}
         style={{ backgroundColor }}
       />
       {label && <span className="text-xs text-gray-600">{label}</span>}
