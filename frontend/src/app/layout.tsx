@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from '@/lib/providers/QueryClientProvider'
+import Header from '@/components/layout/Header'
 
 export const metadata: Metadata = {
   title: 'PCCS2 - Pad-print Color Correction System',
@@ -13,9 +14,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ko">
-      <body className="min-h-screen bg-gray-50">
-        <Providers>{children}</Providers>
+    <html lang="ko" className="dark">
+      <body className="min-h-screen bg-bg-primary">
+        <Header />
+        <main className="pt-16">
+          <Providers>{children}</Providers>
+        </main>
       </body>
     </html>
   )

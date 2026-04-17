@@ -1,52 +1,58 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from uuid import uuid4
-from typing import List
-from sqlalchemy import text
 
 from app.database.session import get_db_session
+from app.models.domain import Project, ProjectStatus
 from app.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse
+
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
-@router.get("/", response_model=List[ProjectResponse])
+@router.get("/", response_model=list[ProjectResponse])
 async def list_projects(db: AsyncSession = Depends(get_db_session)):
-    stmt = text("SELECT * FROM projects ORDER BY created_at DESC")
-    result = await db.execute(stmt)
-    rows = result.fetchall()
-    return [ProjectResponse(**dict(row)) for row in rows]
+    """Get all projects ordered by created_at descending"""
+    result = await db.execute(
+        select(Project).order_by(Project.created_at.desc())
+    )
+    projects = result.scalars().all()
+    return [ProjectResponse.model_validate(p) for p in projects]
 
 
 @router.post("/", response_model=ProjectResponse)
 async def create_project(project: ProjectCreate, db: AsyncSession = Depends(get_db_session)):
+    """Create a new project"""
     project_id = str(uuid4())
-    stmt = text("""
-        INSERT INTO projects (project_id, project_name, customer, status, start_date, target_completion, memo, created_at, updated_at)
-        VALUES (:project_id, :project_name, :customer, :status, :start_date, :target_completion, :memo, NOW(), NOW())
-        RETURNING *
-    """)
-    result = await db.execute(stmt, {
-        "project_id": project_id,
-        "project_name": project.project_name,
-        "customer": project.customer,
-        "status": project.status.value if hasattr(project.status, 'value') else "IN_PROGRESS",
-        "start_date": project.start_date,
-        "target_completion": project.target_completion,
-        "memo": project.memo,
-    })
-    row = result.fetchone()
-    return ProjectResponse(**dict(row))
+
+    db_project = Project(
+        project_id=project_id,
+        project_name=project.project_name,
+        customer=project.customer,
+        status=ProjectStatus.IN_PROGRESS.value,
+        start_date=project.start_date,
+        target_completion=project.target_completion,
+        memo=project.memo,
+    )
+
+    db.add(db_project)
+    await db.commit()
+    await db.refresh(db_project)
+
+    return ProjectResponse.model_validate(db_project)
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(project_id: str, db: AsyncSession = Depends(get_db_session)):
-    stmt = text("SELECT * FROM projects WHERE project_id = :project_id")
-    result = await db.execute(stmt, {"project_id": project_id})
-    row = result.fetchone()
-    if not row:
+    """Get a specific project by ID"""
+    result = await db.execute(select(Project).where(Project.project_id == project_id))
+    project = result.scalar_one_or_none()
+
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    return ProjectResponse(**dict(row))
+
+    return ProjectResponse.model_validate(project)
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)
@@ -55,37 +61,39 @@ async def update_project(
     project: ProjectUpdate,
     db: AsyncSession = Depends(get_db_session)
 ):
-    stmt_check = text("SELECT * FROM projects WHERE project_id = :project_id")
-    result = await db.execute(stmt_check, {"project_id": project_id})
-    row = result.fetchone()
-    if not row:
+    """Update an existing project"""
+    result = await db.execute(
+        select(Project).where(Project.project_id == project_id)
+    )
+    db_project = result.scalar_one_or_none()
+
+    if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    update_fields = []
-    params = {"project_id": project_id}
-    for field, value in project.model_dump(exclude_unset=True).items():
+    # Update only provided fields
+    update_data = project.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
         if value is not None:
-            update_fields.append(f"{field} = :{field}")
-            params[field] = value.value if hasattr(value, 'value') else value
+            setattr(db_project, field, value)
 
-    if update_fields:
-        stmt = text(f"""
-            UPDATE projects
-            SET {', '.join(update_fields)}, updated_at = NOW()
-            WHERE project_id = :project_id
-            RETURNING *
-        """)
-        result = await db.execute(stmt, params)
-        row = result.fetchone()
+    await db.commit()
+    await db.refresh(db_project)
 
-    return ProjectResponse(**dict(row))
+    return ProjectResponse.model_validate(db_project)
 
 
 @router.delete("/{project_id}")
 async def delete_project(project_id: str, db: AsyncSession = Depends(get_db_session)):
-    stmt = text("DELETE FROM projects WHERE project_id = :project_id")
-    result = await db.execute(stmt, {"project_id": project_id})
-    if result.rowcount == 0:
+    """Delete a project by ID"""
+    result = await db.execute(
+        select(Project).where(Project.project_id == project_id)
+    )
+    db_project = result.scalar_one_or_none()
+
+    if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    await db.delete(db_project)
     await db.commit()
+
     return {"message": "Project deleted"}

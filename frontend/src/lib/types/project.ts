@@ -4,7 +4,11 @@ export type { ColorXYZ }
 export interface Project {
   projectId: string
   projectName: string
+  customer?: string
   status: 'IN_PROGRESS' | 'COMPLETED' | 'ON_HOLD'
+  startDate?: string | null
+  targetCompletion?: string | null
+  memo?: string | null
   createdAt: string
   updatedAt: string
 }

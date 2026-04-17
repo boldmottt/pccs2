@@ -1,8 +1,10 @@
-from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Date, JSON, ForeignKey, Text, Index
-from sqlalchemy.sql import func
+from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Date, ForeignKey, Index, Text
 from sqlalchemy.orm import relationship
-from app.database import Base
+from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum
+
+from app.database.session import Base
 
 
 class ProjectStatus(str, Enum):
@@ -58,12 +60,12 @@ class Pattern(Base):
     project_id = Column(String, ForeignKey("projects.project_id"), nullable=False)
     pattern_name = Column(String, nullable=False)
     total_print_layers = Column(Integer, nullable=False)
-    target_base_color_sci = Column(JSON, nullable=True)
-    target_base_color_sce = Column(JSON, nullable=True)
+    target_base_color_sci = Column(JSONB, nullable=True)
+    target_base_color_sce = Column(JSONB, nullable=True)
     target_base_material = Column(String, nullable=True)
     status = Column(String, default=PatternStatus.DEVELOPING.value)
     notes = Column(Text, nullable=True)
-    approved_sample_id = Column(String, ForeignKey("samples.sample_id"), nullable=True)
+    approved_sample_id = Column(String, nullable=True)
     success_rate = Column(Float, nullable=True)
     avg_delta_e = Column(Float, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -71,7 +73,7 @@ class Pattern(Base):
 
     project = relationship("Project", back_populates="patterns")
     rounds = relationship("Round", back_populates="pattern", cascade="all, delete-orphan")
-    samples = relationship("Sample", back_populates="pattern", cascade="all, delete-orphan")
+    samples = relationship("Sample", primaryjoin="Sample.pattern_id == Pattern.pattern_id", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index('idx_pattern_name', 'pattern_name'),
@@ -108,18 +110,18 @@ class Sample(Base):
     round_id = Column(String, ForeignKey("rounds.round_id"), nullable=False)
     pattern_id = Column(String, ForeignKey("patterns.pattern_id"), nullable=False)
     sample_number = Column(Integer, nullable=False)
-    base_color_sci = Column(JSON, nullable=True)
-    base_color_sce = Column(JSON, nullable=True)
+    base_color_sci = Column(JSONB, nullable=True)
+    base_color_sce = Column(JSONB, nullable=True)
     base_material = Column(String, nullable=True)
-    layers = Column(JSON, nullable=True)
+    layers = Column(JSONB, nullable=True)
     final_delta_e = Column(Float, nullable=True)
     success_flag = Column(String, nullable=True)
     success_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    round = relationship("Round", back_populates="samples")
-    pattern = relationship("Pattern", back_populates="samples")
+    round = relationship("Round", back_populates="samples", foreign_keys=[round_id])
+    pattern = relationship("Pattern")
 
     __table_args__ = (
         Index('idx_sample_pattern', 'pattern_id'),
@@ -136,9 +138,9 @@ class Ink(Base):
     ink_category = Column(String, default=InkCategory.COLOR.value)
     manufacturer = Column(String, nullable=True)
     is_blend_ink = Column(Boolean, default=False)
-    blend_recipe = Column(JSON, nullable=True)
-    solid_color_sci = Column(JSON, nullable=True)
-    solid_color_sce = Column(JSON, nullable=True)
+    blend_recipe = Column(JSONB, nullable=True)
+    solid_color_sci = Column(JSONB, nullable=True)
+    solid_color_sce = Column(JSONB, nullable=True)
     delta_sci_sce = Column(Float, nullable=True)
     gloss_index = Column(Float, nullable=True)
     gloss_GU = Column(Float, nullable=True)

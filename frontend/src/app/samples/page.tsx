@@ -8,11 +8,12 @@ export default function SamplesPage() {
   const router = useRouter()
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Page Title */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold">샘플 목록</h1>
-          <p className="text-gray-600 mt-1">등록된 배합비 레시피 목록</p>
+          <h1 className="text-3xl font-bold mb-2">Samples</h1>
+          <p className="text-text-secondary">등록된 배합비 레시피 목록</p>
         </div>
         <Button onClick={() => router.push('/samples/new')}>
           <Plus className="w-4 h-4 mr-1" />
@@ -20,11 +21,12 @@ export default function SamplesPage() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-12 text-center">
-          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-600 mb-2">샘플이 없습니다.</h3>
-          <p className="text-gray-400 mb-6">새로운 배합비 레시피를 등록하세요.</p>
+      {/* Content Card */}
+      <div className="bg-bg-secondary/50 backdrop-blur-sm border border-border-subtle rounded-xl overflow-hidden">
+        <div className="p-16 text-center">
+          <FileText className="w-16 h-16 text-text-secondary mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-text-primary mb-2">샘플이 없습니다.</h3>
+          <p className="text-text-secondary mb-6">새로운 배합비 레시피를 등록하세요.</p>
           <Button onClick={() => router.push('/samples/new')}>
             <Plus className="w-4 h-4 mr-1" />
             샘플 등록하기

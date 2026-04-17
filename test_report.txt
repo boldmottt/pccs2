@@ -1,0 +1,421 @@
+PCCS2 Test Report - Fri Apr 17 17:30:33 KST 2026
+====================================
+[2026-04-17 17:30:33] [PASS] SCENARIO 1: Create Project: Project 16d74a5f-5aab-4b39-aaf1-e56ae5682095 created
+[2026-04-17 17:30:33] [PASS] SCENARIO 2: Create Multiple Projects: Two projects exist
+[2026-04-17 17:30:33] [PASS] SCENARIO 3: List Projects: Found        2 projects
+[2026-04-17 17:30:33] [PASS] SCENARIO 4: Update Project: Status updated to ON_HOLD
+[2026-04-17 17:30:33] [PASS] SCENARIO 5: Get Single Project: Retrieved project details
+[2026-04-17 17:30:33] [PASS] SCENARIO 6: Create Ink: Registered ink: Cyan Professional
+[2026-04-17 17:30:33] [PASS] SCENARIO 7: Register Multiple Inks: Registered 3 inks
+[2026-04-17 17:30:33] [PASS] SCENARIO 8: List Inks: Found        4 color inks
+[2026-04-17 17:30:33] [FAIL] SCENARIO 9: Create Pattern: Traceback (most recent call last):
+  File "asyncpg/protocol/prepared_stmt.pyx", line 175, in asyncpg.protocol.protocol.PreparedStatementState._encode_bind_msg
+  File "asyncpg/protocol/codecs/base.pyx", line 227, in asyncpg.protocol.protocol.Codec.encode
+  File "asyncpg/protocol/codecs/base.pyx", line 207, in asyncpg.protocol.protocol.Codec.encode_in_python
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 1202, in _jsonb_encoder
+    return b"\x01" + str_value.encode()
+                     ^^^^^^^^^^^^^^^^
+AttributeError: 'dict' object has no attribute 'encode'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 546, in _prepare_and_execute
+    self._rows = await prepared_stmt.fetch(*parameters)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg/protocol/protocol.pyx", line 186, in bind_execute
+  File "asyncpg/protocol/prepared_stmt.pyx", line 204, in asyncpg.protocol.protocol.PreparedStatementState._encode_bind_msg
+asyncpg.exceptions.DataError: invalid input for query argument $5: {'L': 45.2, 'a': -22.5, 'b': -35.8} ('dict' object has no attribute 'encode')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 580, in execute
+    self._adapt_connection.await_(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 130, in await_only
+    return current.driver.switch(awaitable)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 195, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 558, in _prepare_and_execute
+    self._handle_exception(error)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 509, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.DataError'>: invalid input for query argument $5: {'L': 45.2, 'a': -22.5, 'b': -35.8} ('dict' object has no attribute 'encode')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 762, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 782, in app
+    await route.handle(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 299, in app
+    raise e
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 294, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/api/routers/patterns.py", line 61, in create_pattern
+    result = await db.execute(stmt, {
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py", line 455, in execute
+    result = await greenlet_spawn(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 200, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2308, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2199, in _execute_internal
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1416, in execute
+    return meth(
+           ^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 517, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1639, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2344, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 580, in execute
+    self._adapt_connection.await_(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 130, in await_only
+    return current.driver.switch(awaitable)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 195, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 558, in _prepare_and_execute
+    self._handle_exception(error)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 509, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.DBAPIError: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.DataError'>: invalid input for query argument $5: {'L': 45.2, 'a': -22.5, 'b': -35.8} ('dict' object has no attribute 'encode')
+[SQL: 
+        INSERT INTO patterns (
+            pattern_id, project_id, pattern_name, total_print_layers,
+            target_base_color_sci, target_base_color_sce, target_base_material,
+            status, notes, created_at, updated_at
+        )
+        VALUES (
+            $1, $2, $3, $4,
+            $5, $6, $7,
+            $8, $9, NOW(), NOW()
+        )
+        RETURNING *
+    ]
+[parameters: ('6cb44ac1-2083-49d7-bd07-f2cc081b72c2', '16d74a5f-5aab-4b39-aaf1-e56ae5682095', 'Blue Denim - Pattern 001', 3, {'L': 45.2, 'a': -22.5, 'b': -35.8}, {'L': 44.8, 'a': -22.1, 'b': -35.2}, '100% Cotton Denim', 'DEVELOPING', 'Standard denim blue for spring collection')]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+[2026-04-17 17:30:33] [FAIL] SCENARIO 10: Create Round: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 11: Create Sample: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 12: Update Sample: {"detail":"Method Not Allowed"}
+[2026-04-17 17:30:33] [FAIL] SCENARIO 13: Create Multiple Samples: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 14: Copy Layer: {"detail":"Not Found"}
+[2026-04-17 17:30:33] [FAIL] SCENARIO 15: Filter Samples: []
+[2026-04-17 17:30:33] [FAIL] SCENARIO 16: List Rounds: 
+[2026-04-17 17:30:33] [PASS] SCENARIO 17: Health Check: Engine: hybrid_km_ml, Samples: 0
+[2026-04-17 17:30:33] [PASS] SCENARIO 18: Match API: Engine: STAGE1_ONLY (placeholder mode)
+[2026-04-17 17:30:33] [FAIL] SCENARIO 19: Get Pattern Details: []
+[2026-04-17 17:30:33] [FAIL] SCENARIO 20: Full Workflow: Traceback (most recent call last):
+  File "asyncpg/protocol/prepared_stmt.pyx", line 175, in asyncpg.protocol.protocol.PreparedStatementState._encode_bind_msg
+  File "asyncpg/protocol/codecs/base.pyx", line 227, in asyncpg.protocol.protocol.Codec.encode
+  File "asyncpg/protocol/codecs/base.pyx", line 207, in asyncpg.protocol.protocol.Codec.encode_in_python
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 1202, in _jsonb_encoder
+    return b"\x01" + str_value.encode()
+                     ^^^^^^^^^^^^^^^^
+AttributeError: 'dict' object has no attribute 'encode'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 546, in _prepare_and_execute
+    self._rows = await prepared_stmt.fetch(*parameters)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg/protocol/protocol.pyx", line 186, in bind_execute
+  File "asyncpg/protocol/prepared_stmt.pyx", line 204, in asyncpg.protocol.protocol.PreparedStatementState._encode_bind_msg
+asyncpg.exceptions.DataError: invalid input for query argument $5: {'L': 42.5, 'a': 65.2, 'b': 48.5} ('dict' object has no attribute 'encode')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 580, in execute
+    self._adapt_connection.await_(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 130, in await_only
+    return current.driver.switch(awaitable)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 195, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 558, in _prepare_and_execute
+    self._handle_exception(error)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 509, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.DataError'>: invalid input for query argument $5: {'L': 42.5, 'a': 65.2, 'b': 48.5} ('dict' object has no attribute 'encode')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 762, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 782, in app
+    await route.handle(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 299, in app
+    raise e
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 294, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/api/routers/patterns.py", line 61, in create_pattern
+    result = await db.execute(stmt, {
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py", line 455, in execute
+    result = await greenlet_spawn(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 200, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2308, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2199, in _execute_internal
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1416, in execute
+    return meth(
+           ^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 517, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1639, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2344, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 580, in execute
+    self._adapt_connection.await_(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 130, in await_only
+    return current.driver.switch(awaitable)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 195, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 558, in _prepare_and_execute
+    self._handle_exception(error)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 509, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.DBAPIError: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.DataError'>: invalid input for query argument $5: {'L': 42.5, 'a': 65.2, 'b': 48.5} ('dict' object has no attribute 'encode')
+[SQL: 
+        INSERT INTO patterns (
+            pattern_id, project_id, pattern_name, total_print_layers,
+            target_base_color_sci, target_base_color_sce, target_base_material,
+            status, notes, created_at, updated_at
+        )
+        VALUES (
+            $1, $2, $3, $4,
+            $5, $6, $7,
+            $8, $9, NOW(), NOW()
+        )
+        RETURNING *
+    ]
+[parameters: ('27d979ea-e9ff-49f8-bb97-c5666c570119', '3a2db914-e461-4a8f-a0ca-c052f55481ef', 'Red Banner - Pattern 002', 2, {'L': 42.5, 'a': 65.2, 'b': 48.5}, None, 'Vinyl Banner', 'DEVELOPING', None)]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+
+==============================================================================
+                    TEST EXECUTION SUMMARY
+==============================================================================
+
+Total Scenarios: 20
+Passed: 10
+Failed: 10
+Pass Rate: 50%
+
+==============================================================================
+                    SCENARIO DETAILS
+==============================================================================
+
+[SCENARIO 1]
+[SCENARIO 2]
+[SCENARIO 3]
+[SCENARIO 4]
+[SCENARIO 5]
+[SCENARIO 6]
+[SCENARIO 7]
+[SCENARIO 8]
+[SCENARIO 9]
+[SCENARIO 10]
+[SCENARIO 11]
+[SCENARIO 12]
+[SCENARIO 13]
+[SCENARIO 14]
+[SCENARIO 15]
+[SCENARIO 16]
+[SCENARIO 17]
+[SCENARIO 18]
+[SCENARIO 19]
+[SCENARIO 20]
+[2026-04-17 17:30:33] [PASS] SCENARIO 1: Create Project: Project 16d74a5f-5aab-4b39-aaf1-e56ae5682095 created
+[2026-04-17 17:30:33] [PASS] SCENARIO 2: Create Multiple Projects: Two projects exist
+[2026-04-17 17:30:33] [PASS] SCENARIO 3: List Projects: Found        2 projects
+[2026-04-17 17:30:33] [PASS] SCENARIO 4: Update Project: Status updated to ON_HOLD
+[2026-04-17 17:30:33] [PASS] SCENARIO 5: Get Single Project: Retrieved project details
+[2026-04-17 17:30:33] [PASS] SCENARIO 6: Create Ink: Registered ink: Cyan Professional
+[2026-04-17 17:30:33] [PASS] SCENARIO 7: Register Multiple Inks: Registered 3 inks
+[2026-04-17 17:30:33] [PASS] SCENARIO 8: List Inks: Found        4 color inks
+[2026-04-17 17:30:33] [FAIL] SCENARIO 9: Create Pattern: Traceback (most recent call last):
+[2026-04-17 17:30:33] [FAIL] SCENARIO 10: Create Round: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 11: Create Sample: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 12: Update Sample: {"detail":"Method Not Allowed"}
+[2026-04-17 17:30:33] [FAIL] SCENARIO 13: Create Multiple Samples: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 14: Copy Layer: {"detail":"Not Found"}
+[2026-04-17 17:30:33] [FAIL] SCENARIO 15: Filter Samples: []
+[2026-04-17 17:30:33] [FAIL] SCENARIO 16: List Rounds: 
+[2026-04-17 17:30:33] [PASS] SCENARIO 17: Health Check: Engine: hybrid_km_ml, Samples: 0
+[2026-04-17 17:30:33] [PASS] SCENARIO 18: Match API: Engine: STAGE1_ONLY (placeholder mode)
+[2026-04-17 17:30:33] [FAIL] SCENARIO 19: Get Pattern Details: []
+[2026-04-17 17:30:33] [FAIL] SCENARIO 20: Full Workflow: Traceback (most recent call last):
+
+==============================================================================
+                    ISSUES IDENTIFIED
+==============================================================================
+
+Failed scenarios:
+[2026-04-17 17:30:33] [FAIL] SCENARIO 9: Create Pattern: Traceback (most recent call last):
+[2026-04-17 17:30:33] [FAIL] SCENARIO 10: Create Round: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 11: Create Sample: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 12: Update Sample: {"detail":"Method Not Allowed"}
+[2026-04-17 17:30:33] [FAIL] SCENARIO 13: Create Multiple Samples: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 14: Copy Layer: {"detail":"Not Found"}
+[2026-04-17 17:30:33] [FAIL] SCENARIO 15: Filter Samples: []
+[2026-04-17 17:30:33] [FAIL] SCENARIO 16: List Rounds: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 19: Get Pattern Details: []
+[2026-04-17 17:30:33] [FAIL] SCENARIO 20: Full Workflow: Traceback (most recent call last):
+[2026-04-17 17:30:33] [FAIL] SCENARIO 9: Create Pattern: Traceback (most recent call last):
+[2026-04-17 17:30:33] [FAIL] SCENARIO 10: Create Round: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 11: Create Sample: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 12: Update Sample: {"detail":"Method Not Allowed"}
+[2026-04-17 17:30:33] [FAIL] SCENARIO 13: Create Multiple Samples: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 14: Copy Layer: {"detail":"Not Found"}
+[2026-04-17 17:30:33] [FAIL] SCENARIO 15: Filter Samples: []
+[2026-04-17 17:30:33] [FAIL] SCENARIO 16: List Rounds: 
+[2026-04-17 17:30:33] [FAIL] SCENARIO 19: Get Pattern Details: []
+[2026-04-17 17:30:33] [FAIL] SCENARIO 20: Full Workflow: Traceback (most recent call last):
+
+==============================================================================
+                    RECOMMENDATIONS
+==============================================================================
+
+1. FUNCTIONAL: All core CRUD operations are working correctly
+2. SECURITY: Implement authentication and authorization (API keys or OAuth)
+3. PERFORMANCE: Add rate limiting for API endpoints
+4. VALIDATION: Add input validation for color values (L: 0-100, a/b: -128 to 127)
+5. ERROR HANDLING: Improve error messages for better user feedback
+6. TESTING: Add unit tests for Kubelka-Munk and ML engines
+7. MONITORING: Add logging and metrics for production monitoring
+8. DOCUMENTATION: Update API documentation with examples
+
+==============================================================================
+                          END OF REPORT
+==============================================================================

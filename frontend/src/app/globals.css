@@ -2,13 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design Tokens - Dark Luxury Theme */
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  /* Background Colors */
+  --bg-primary: oklch(12% 0 0);
+  --bg-secondary: oklch(18% 0 0);
+  --bg-tertiary: oklch(24% 0 0);
+
+  /* Text Colors */
+  --text-primary: oklch(96% 0 0);
+  --text-secondary: oklch(70% 0 0);
+
+  /* Accent Colors */
+  --accent-primary: oklch(62% 0.22 265);
+  --accent-secondary: oklch(58% 0.18 190);
+
+  /* Status Colors */
+  --success: oklch(68% 0.15 145);
+  --warning: oklch(70% 0.18 85);
+  --error: oklch(58% 0.24 15);
+
+  /* Border */
+  --border-subtle: oklch(30% 0 0 / 0.3);
+
+  /* Typography */
+  --text-hero: clamp(2.5rem, 4vw, 4rem);
+  --text-2xl: clamp(1.75rem, 2.5vw, 2.5rem);
+  --text-xl: clamp(1.25rem, 1.75vw, 1.5rem);
+  --text-base: 1rem;
+  --text-sm: 0.875rem;
+
+  /* Spacing */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+
+  /* Transitions */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+
+  /* Easing */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+
+/* Dark mode defaults */
+.dark {
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Utility classes for design system */
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(90deg, oklch(62% 0.22 265), oklch(58% 0.18 190));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shadow-glow {
+    box-shadow: 0 0 40px oklch(62% 0.22 265 / 0.3);
+  }
+
+  .animate-fade-in {
+    animation: fadeIn var(--duration-normal) var(--ease-out-expo);
+  }
+
+  .animate-slide-up {
+    animation: slideUp var(--duration-normal) var(--ease-out-expo);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }

@@ -1,6 +1,6 @@
-from functools import lru_cache
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.config import get_settings
 
@@ -23,10 +23,16 @@ AsyncSessionLocal = async_sessionmaker(
 Base = declarative_base()
 
 
-@lru_cache()
-def get_db_session() -> AsyncSession:
-    session = AsyncSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+async def get_db_session():
+    """FastAPI async DB dependency.
+
+    Yields a fresh AsyncSession per request. Commits on success,
+    rolls back on exception.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

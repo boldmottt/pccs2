@@ -28,7 +28,7 @@ async def list_rounds(
     """)
     result = await db.execute(stmt, params)
     rows = result.fetchall()
-    return [RoundResponse(**dict(row)) for row in rows]
+    return [RoundResponse(**dict(row._mapping)) for row in rows]
 
 
 @router.get("/pattern/{pattern_id}", response_model=List[RoundResponse])
@@ -36,7 +36,7 @@ async def get_pattern_rounds(pattern_id: str, db: AsyncSession = Depends(get_db_
     stmt = text("SELECT * FROM rounds WHERE pattern_id = :pattern_id ORDER BY round_number ASC")
     result = await db.execute(stmt, {"pattern_id": pattern_id})
     rows = result.fetchall()
-    return [RoundResponse(**dict(row)) for row in rows]
+    return [RoundResponse(**dict(row._mapping)) for row in rows]
 
 
 @router.post("/pattern/{pattern_id}", response_model=RoundResponse)
@@ -65,7 +65,7 @@ async def create_round(
         "work_location": round_data.work_location,
     })
     row = result.fetchone()
-    return RoundResponse(**dict(row))
+    return RoundResponse(**dict(row._mapping))
 
 
 @router.get("/{round_id}", response_model=RoundResponse)
@@ -75,7 +75,7 @@ async def get_round(round_id: str, db: AsyncSession = Depends(get_db_session)):
     row = result.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Round not found")
-    return RoundResponse(**dict(row))
+    return RoundResponse(**dict(row._mapping))
 
 
 @router.put("/{round_id}", response_model=RoundResponse)
@@ -107,7 +107,7 @@ async def update_round(
         result = await db.execute(stmt, params)
         row = result.fetchone()
 
-    return RoundResponse(**dict(row))
+    return RoundResponse(**dict(row._mapping))
 
 
 @router.delete("/{round_id}")

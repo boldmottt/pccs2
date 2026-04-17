@@ -4,7 +4,6 @@ from datetime import datetime, date
 
 
 class RoundCreate(BaseModel):
-    pattern_id: str
     round_number: int = Field(..., ge=1)
     work_date: Optional[date] = None
     operator: Optional[str] = None
