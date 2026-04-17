@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useContext, createContext } from 'react'
+import React, { useContext, createContext } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronDown } from 'lucide-react'
 
@@ -11,17 +11,32 @@ interface SelectContextType {
 
 const SelectContext = createContext<SelectContextType | undefined>(undefined)
 
+interface SelectOption {
+  value: string
+  label: string
+}
+
 interface SelectProps {
   value: string
   onValueChange: (value: string) => void
-  children: React.ReactNode
+  options?: SelectOption[]
+  placeholder?: string
   className?: string
+  children?: React.ReactNode
 }
 
-export function Select({ value, onValueChange, children, className }: SelectProps) {
+export function Select({ value, onValueChange, options, placeholder, className, children }: SelectProps) {
+  const selectedLabel = options?.find(o => o.value === value)?.label || placeholder || ''
+
   return (
     <SelectContext.Provider value={{ value, onValueChange }}>
-      <div className={className}>{children}</div>
+      <div className={className}>
+        {children || (
+          <SelectTrigger>
+            <SelectValue placeholder={placeholder}>{selectedLabel}</SelectValue>
+          </SelectTrigger>
+        )}
+      </div>
     </SelectContext.Provider>
   )
 }
@@ -31,19 +46,28 @@ interface SelectTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export function SelectTrigger({ className, children, ...props }: SelectTriggerProps) {
+  const context = useContext(SelectContext)
+  const selectedLabel = context?.value
+    ? React.Children.toArray(children).find(child =>
+        React.isValidElement(child) &&
+        (child as React.ReactElement).type === SelectValue
+      )
+    : null
+
   return (
     <button
       type="button"
       className={cn(
-        'flex items-center justify-between w-full h-10 rounded-lg border border-gray-300',
-        'bg-white px-3 py-2 text-sm',
-        'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent',
+        'flex items-center justify-between w-full h-10 rounded-lg border border-border-subtle',
+        'bg-bg-secondary/50 px-3 py-2 text-sm',
+        'focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary',
+        'text-text-primary',
         className
       )}
       {...props}
     >
-      <span className="truncate">{children}</span>
-      <ChevronDown className="w-4 h-4 text-gray-400" />
+      <span className="truncate">{children || context?.value || ''}</span>
+      <ChevronDown className="w-4 h-4 text-text-secondary" />
     </button>
   )
 }
@@ -72,7 +96,17 @@ interface SelectValueProps {
 }
 
 export function SelectValue({ placeholder, children }: SelectValueProps) {
-  return <span>{children || placeholder}</span>
+  const context = useContext(SelectContext)
+  if (!context) return <span>{children || placeholder}</span>
+
+  // If children provided, use it. Otherwise use placeholder or show selected value label
+  if (children) {
+    return <span>{children}</span>
+  }
+
+  // Find the label for selected value from options
+  // This is passed down from parent Select component
+  return <span>{placeholder || ''}</span>
 }
 
 interface SelectItemProps extends React.LiHTMLAttributes<HTMLLIElement> {
