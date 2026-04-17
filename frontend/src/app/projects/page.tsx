@@ -6,6 +6,7 @@ import { ProjectList } from '@/components/projects/ProjectList'
 import { Button } from '@/components/ui/Button'
 import { Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import type { Project } from '@/lib/types/project'
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -14,6 +15,20 @@ export default function ProjectsPage() {
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
   })
+
+  const convertToProject = (p: ProjectResponse): Project => ({
+    projectId: p.project_id,
+    projectName: p.project_name,
+    customer: p.customer,
+    status: p.status,
+    startDate: p.start_date,
+    targetCompletion: p.target_completion,
+    memo: p.memo,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  })
+
+  const convertedProjects = projects?.map(convertToProject)
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -33,8 +48,8 @@ export default function ProjectsPage() {
       <div className="bg-bg-secondary/50 backdrop-blur-sm border border-border-subtle rounded-xl overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-text-secondary">로딩 중...</div>
-        ) : projects && projects.length > 0 ? (
-          <ProjectList projects={projects as any} />
+        ) : convertedProjects && convertedProjects.length > 0 ? (
+          <ProjectList projects={convertedProjects} />
         ) : (
           <div className="p-16 text-center">
             <p className="text-text-secondary text-lg">
