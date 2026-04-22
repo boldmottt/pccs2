@@ -40,7 +40,7 @@ async def list_patterns(
     """)
     result = await db.execute(stmt, params)
     rows = result.fetchall()
-    return [PatternResponse(**dict(row)) for row in rows]
+    return [PatternResponse(**dict(row._mapping)) for row in rows]
 
 
 @router.post("/", response_model=PatternResponse)
