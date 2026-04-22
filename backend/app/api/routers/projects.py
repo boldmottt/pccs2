@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
 
 from app.database.session import get_db_session
@@ -93,7 +93,7 @@ async def delete_project(project_id: str, db: AsyncSession = Depends(get_db_sess
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    await db.delete(db_project)
+    db.delete(db_project)
     await db.commit()
 
     return {"message": "Project deleted"}

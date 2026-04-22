@@ -16,19 +16,7 @@ export default function ProjectsPage() {
     queryFn: projectsApi.getAll,
   })
 
-  const convertToProject = (p: ProjectResponse): Project => ({
-    projectId: p.project_id,
-    projectName: p.project_name,
-    customer: p.customer,
-    status: p.status,
-    startDate: p.start_date,
-    targetCompletion: p.target_completion,
-    memo: p.memo,
-    createdAt: p.created_at,
-    updatedAt: p.updated_at,
-  })
-
-  const convertedProjects = projects?.map(convertToProject)
+  const convertedProjects: Project[] | undefined = projects as unknown as Project[]
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

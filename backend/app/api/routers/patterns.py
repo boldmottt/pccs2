@@ -70,6 +70,7 @@ async def create_pattern(pattern: PatternCreate, db: AsyncSession = Depends(get_
         "status": pattern.status or "DEVELOPING",
         "notes": pattern.notes,
     })
+    await db.flush()
     row = result.fetchone()
     return PatternResponse(**{key: getattr(row, key) for key in row._mapping.keys()})
 
@@ -116,6 +117,7 @@ async def update_pattern(
             RETURNING *
         """)
         result = await db.execute(stmt, params)
+        await db.flush()
         row = result.fetchone()
 
     return PatternResponse(**dict(row))

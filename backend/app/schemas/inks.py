@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+from pydantic.alias_generators import to_camel
 
 
 class InkCategoryEnum(str, Enum):
@@ -14,7 +15,11 @@ class InkCategoryEnum(str, Enum):
 
 class InkCreate(BaseModel):
     """Schema for creating a new ink master record."""
-    model_config = ConfigDict(use_enum_values=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        use_enum_values=True,
+    )
 
     ink_name: str = Field(
         ...,
@@ -74,6 +79,11 @@ class InkCreate(BaseModel):
 
 class InkUpdate(BaseModel):
     """Schema for updating an existing ink record."""
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
     ink_name: Optional[str] = Field(
         None,
         min_length=1,
@@ -123,6 +133,12 @@ class InkUpdate(BaseModel):
 
 class InkResponse(BaseModel):
     """Response schema for ink data."""
+    model_config = ConfigDict(
+        from_attributes=True,
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
     ink_id: str = Field(..., description="Ink UUID")
     ink_name: str = Field(..., description="Ink name")
     ink_category: str = Field(..., description="Ink category")
@@ -151,6 +167,3 @@ class InkResponse(BaseModel):
     memo: Optional[str] = Field(None, description="Notes")
     registered_at: datetime = Field(..., description="Registration timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
-
-    class Config:
-        from_attributes = True

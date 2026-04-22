@@ -20,13 +20,17 @@ class MLCorrectionEngine:
             model_a: GradientBoostingRegressor for a correction
             model_b: GradientBoostingRegressor for b correction
             is_trained: Whether the model has been trained
-            n_features_: Number of features expected by trained models
+            _n_features: Number of features expected by trained models
+            _training_X: Stored training feature matrix for confidence calculation
+            _training_y: Stored training label matrix for confidence calculation
         """
         self.model_l = None
         self.model_a = None
         self.model_b = None
         self.is_trained: bool = False
         self._n_features: int = 0
+        self._training_X: np.ndarray = np.array([])
+        self._training_y: np.ndarray = np.array([])
 
     def train(self, historical_data: List[Dict]) -> None:
         """Train ML model on historical data.
@@ -44,6 +48,10 @@ class MLCorrectionEngine:
             raise ValueError("Historical data required for training")
 
         X, y = self._prepare_training_data(historical_data)
+
+        # Store training data for confidence calculation later
+        self._training_X = X.copy()
+        self._training_y = y.copy()
 
         # Train separate models for L, a, b to handle multi-output
         from sklearn.ensemble import GradientBoostingRegressor
@@ -224,7 +232,10 @@ class MLCorrectionEngine:
         return np.array(features, dtype=float)
 
     def _get_confidence(self) -> float:
-        """Calculate prediction confidence score.
+        """Calculate prediction confidence score using actual training data.
+
+        Uses stored training data (self._training_X, self._training_y) to
+        compute R^2 scores from each channel model and returns the average.
 
         Returns:
             Confidence score between 0.0 (low) and 1.0 (high)
@@ -234,50 +245,23 @@ class MLCorrectionEngine:
             return 0.0
 
         # Need at least 2 samples for meaningful R^2 calculation
-        if self._n_features == 0:
+        if self._training_X.size == 0 or self._training_y.shape[0] < 2:
             return 0.0
 
-        # Use average R^2 score across all three models as confidence indicator
         scores = []
 
-        if hasattr(self, "model_l") and self.model_l is not None:
-            try:
-                r2 = self.model_l.score(*self._prepare_training_data_from_model())
-                if not np.isnan(r2):
-                    scores.append(float(r2))
-            except (ValueError, RuntimeError):
-                pass
-
-        if hasattr(self, "model_a") and self.model_a is not None:
-            try:
-                r2 = self.model_a.score(*self._prepare_training_data_from_model())
-                if not np.isnan(r2):
-                    scores.append(float(r2))
-            except (ValueError, RuntimeError):
-                pass
-
-        if hasattr(self, "model_b") and self.model_b is not None:
-            try:
-                r2 = self.model_b.score(*self._prepare_training_data_from_model())
-                if not np.isnan(r2):
-                    scores.append(float(r2))
-            except (ValueError, RuntimeError):
-                pass
+        # Calculate R^2 score for each channel using actual training data
+        for idx, model in enumerate([self.model_l, self.model_a, self.model_b]):
+            if model is not None:
+                try:
+                    r2 = model.score(self._training_X, self._training_y[:, idx])
+                    if not np.isnan(r2):
+                        scores.append(float(r2))
+                except (ValueError, RuntimeError, IndexError):
+                    pass
 
         if not scores:
             return 0.0
 
         avg_r2 = float(np.mean(scores))
         return float(np.clip(avg_r2, 0.0, 1.0))
-
-    def _prepare_training_data_from_model(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Helper to get training data shape for confidence calculation.
-
-        Note: This is a simplified version that just returns shape info.
-        For real confidence, we'd need to store training data.
-        """
-        # Return dummy data with correct feature count
-        n_features = self._n_features if self._n_features > 0 else 6
-        X = np.zeros((1, n_features))
-        y = np.zeros(1)  # 1D array for single-output models
-        return X, y

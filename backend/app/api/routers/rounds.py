@@ -64,6 +64,7 @@ async def create_round(
         "operator": round_data.operator,
         "work_location": round_data.work_location,
     })
+    await db.flush()
     row = result.fetchone()
     return RoundResponse(**dict(row._mapping))
 
@@ -105,6 +106,7 @@ async def update_round(
             RETURNING *
         """)
         result = await db.execute(stmt, params)
+        await db.flush()
         row = result.fetchone()
 
     return RoundResponse(**dict(row._mapping))

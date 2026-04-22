@@ -1,26 +1,33 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime, date
+from enum import Enum
 
 
-class ProjectStatusEnum(str):
+class ProjectStatusEnum(str, Enum):
+    """Project status values."""
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     ON_HOLD = "ON_HOLD"
 
 
 class ProjectCreate(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     project_name: str = Field(..., min_length=1, max_length=200)
     customer: Optional[str] = None
+    status: ProjectStatusEnum = ProjectStatusEnum.IN_PROGRESS
     start_date: Optional[date] = None
     target_completion: Optional[date] = None
     memo: Optional[str] = None
 
 
 class ProjectUpdate(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     project_name: Optional[str] = None
     customer: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[ProjectStatusEnum] = None
     target_completion: Optional[date] = None
     memo: Optional[str] = None
 

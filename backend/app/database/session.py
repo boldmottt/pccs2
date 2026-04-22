@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.dialects.postgresql import JSONB
+from typing import AsyncGenerator
 
 from app.config import get_settings
 
@@ -23,11 +23,13 @@ AsyncSessionLocal = async_sessionmaker(
 Base = declarative_base()
 
 
-async def get_db_session():
-    """FastAPI async DB dependency.
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency that provides an async DB session.
 
-    Yields a fresh AsyncSession per request. Commits on success,
-    rolls back on exception.
+    - Creates a new AsyncSession per request
+    - Auto-commits on success
+    - Auto-rollbacks on exception
+    - Always closes session when done
     """
     async with AsyncSessionLocal() as session:
         try:

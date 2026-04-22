@@ -125,7 +125,7 @@ async def create_sample(
     )
 
     db.add(db_sample)
-    await db.commit()
+    await db.flush()
     await db.refresh(db_sample)
 
     return sample_to_response(db_sample)
@@ -152,7 +152,7 @@ async def update_sample(
         if value is not None:
             setattr(db_sample, field, value)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(db_sample)
 
     return sample_to_response(db_sample)
@@ -226,7 +226,7 @@ async def copy_layer(
     target_layers.sort(key=lambda x: x.get("layer_number", 0))
 
     target.layers = target_layers
-    await db.commit()
+    await db.flush()
     await db.refresh(target)
 
     return sample_to_response(target)

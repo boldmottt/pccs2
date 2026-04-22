@@ -30,8 +30,3 @@ class MatchResponse(BaseModel):
     recommended_recipes: List[RecommendedRecipe]
     engine_used: str
     model_version: str
-
-
-class CopyLayerRequest(BaseModel):
-    source_sample_id: str
-    layer_number: int

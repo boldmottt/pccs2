@@ -86,7 +86,7 @@ async def create_ink(ink: InkCreate, db: AsyncSession = Depends(get_db_session))
     )
 
     db.add(db_ink)
-    await db.commit()
+    await db.flush()
     await db.refresh(db_ink)
 
     return ink_to_response(db_ink)
@@ -123,14 +123,16 @@ async def register_blend_ink(
             solid_color_sce=blend_recipe.get("solid_color_sce") if blend_recipe else None,
         )
         db.add(db_ink)
+        await db.flush()
+        await db.refresh(db_ink)
     else:
         # Update existing
         db_ink.is_blend_ink = True
         db_ink.blend_recipe = blend_recipe
         db_ink.manufacturer = manufacturer
 
-    await db.commit()
-    await db.refresh(db_ink)
+        await db.flush()
+        await db.refresh(db_ink)
 
     return ink_to_response(db_ink)
 
@@ -170,7 +172,7 @@ async def update_ink(
         if value is not None:
             setattr(db_ink, field, value)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(db_ink)
 
     return ink_to_response(db_ink)

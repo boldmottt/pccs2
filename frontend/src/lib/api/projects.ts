@@ -2,31 +2,31 @@ import { apiClient } from './client'
 import type { Project } from '@/lib/types/project'
 
 export interface ProjectCreate {
-  project_name: string
+  projectName: string
   customer?: string
-  start_date?: string
-  target_completion?: string
+  startDate?: string
+  targetCompletion?: string
   memo?: string
 }
 
 export interface ProjectUpdate {
-  project_name?: string
+  projectName?: string
   customer?: string
   status?: string
-  target_completion?: string
+  targetCompletion?: string
   memo?: string
 }
 
 export interface ProjectResponse {
-  project_id: string
-  project_name: string
+  projectId: string
+  projectName: string
   customer?: string
   status: 'IN_PROGRESS' | 'COMPLETED' | 'ON_HOLD'
-  start_date?: string
-  target_completion?: string
+  startDate?: string
+  targetCompletion?: string
   memo?: string
-  created_at: string
-  updated_at: string
+  createdAt: string
+  updatedAt: string
 }
 
 export const projectsApi = {
@@ -38,8 +38,8 @@ export const projectsApi = {
   create: (data: ProjectCreate) =>
     apiClient.post<ProjectResponse>('/api/projects', data),
 
-  update: (id: string, data: ProjectUpdate) =>
-    apiClient.put<ProjectResponse>(`/api/projects/${id}`, data),
+  update: (params: { id: string; data: ProjectUpdate }) =>
+    apiClient.put<ProjectResponse>(`/api/projects/${params.id}`, params.data),
 
   delete: (id: string) =>
     apiClient.delete<void>(`/api/projects/${id}`),
