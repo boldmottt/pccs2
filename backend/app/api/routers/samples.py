@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 from uuid import uuid4
 
 from app.database.session import get_db_session
@@ -244,6 +245,7 @@ async def copy_layer(
     target_layers.sort(key=lambda x: x.get("layer_number", 0))
 
     target.layers = target_layers
+    flag_modified(target, "layers")
     await db.flush()
     await db.refresh(target)
 
