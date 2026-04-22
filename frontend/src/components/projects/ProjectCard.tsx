@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Edit2, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Input } from '@/components/ui/Input'
+import { apiClient } from '@/lib/api/client'
 
 interface ProjectCardProps {
   project: Project
@@ -41,12 +42,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   const handleEdit = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/projects/${project.projectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editData),
-      })
-      if (!response.ok) throw new Error('Failed to update project')
+      await apiClient.put(`/api/projects/${project.projectId}`, editData)
       setIsEditing(false)
       window.location.reload()
     } catch (error) {
@@ -58,10 +54,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
   const handleDelete = async () => {
     if (!confirm('정말 이 프로젝트를 삭제하시겠습니까?')) return
     try {
-      const response = await fetch(`http://localhost:8000/api/projects/${project.projectId}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) throw new Error('Failed to delete project')
+      await apiClient.delete(`/api/projects/${project.projectId}`)
       window.location.reload()
     } catch (error) {
       console.error('Failed to delete project:', error)
