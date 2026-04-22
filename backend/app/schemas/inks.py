@@ -58,6 +58,11 @@ class InkCreate(BaseModel):
         le=10.0,
         description="Density in g/cm³ (0-10)"
     )
+    k_over_s: Optional[float] = Field(
+        None,
+        ge=0.0,
+        description="Kubelka-Munk K/S ratio"
+    )
     memo: Optional[str] = Field(
         None,
         max_length=1000,
@@ -154,6 +159,7 @@ class InkResponse(BaseModel):
         None,
         description="Delta E between SCI and SCE"
     )
+    k_over_s: Optional[float] = Field(None, description="Kubelka-Munk K/S ratio")
     gloss_index: Optional[float] = Field(None, description="Gloss index")
     gloss_GU: Optional[float] = Field(None, description="Gloss at 60°")
     viscosity: Optional[float] = Field(None, description="Viscosity")
