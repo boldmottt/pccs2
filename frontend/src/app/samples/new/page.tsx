@@ -35,6 +35,12 @@ export default function NewSamplePage() {
 }
 
 function NewSampleContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
+  const roundId = searchParams.get('roundId')
+
+  const [formData, setFormData] = useState<FormData>({
     baseColorSci: { L: 0, a: 0, b: 0 },
     baseColorSce: { L: 0, a: 0, b: 0 },
     baseMaterial: '',

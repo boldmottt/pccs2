@@ -63,7 +63,7 @@ export default function NewInkPage() {
           <label className="block text-sm font-medium mb-1">카테고리</label>
           <select
             value={formData.inkCategory}
-            onChange={e => setFormData(prev => ({ ...prev, inkCategory: e.target.value as any }))}
+            onChange={e => setFormData(prev => ({ ...prev, inkCategory: e.target.value as FormData['inkCategory'] }))}
             className="w-full border rounded-lg px-3 py-2"
           >
             <option value="COLOR">COLOR</option>

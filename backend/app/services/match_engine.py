@@ -28,6 +28,8 @@ class MatchEngine:
     DEFAULT_MAX_RESULTS = 5
     DEFAULT_MAX_COMPONENTS = 3
     DEFAULT_THINNER_RATIO = 0.15
+    # K-M only attenuates; blend chromaticity from solid colors dominates prediction.
+    CHROMATICITY_BLEND_WEIGHT = 0.7
 
     def recommend(
         self,
@@ -199,10 +201,9 @@ class MatchEngine:
             km_result = KubelkaMunkEngine.predict_recipe(recipe, km_base)
             predicted = km_result["predicted_color"]
 
-            # Override a, b with blended values since K-M only attenuates
-            # and doesn't model chromaticity well for ink blends
-            predicted["a"] = blended_a * 0.7 + predicted["a"] * 0.3
-            predicted["b"] = blended_b * 0.7 + predicted["b"] * 0.3
+            w = self.CHROMATICITY_BLEND_WEIGHT
+            predicted["a"] = blended_a * w + predicted["a"] * (1 - w)
+            predicted["b"] = blended_b * w + predicted["b"] * (1 - w)
 
             delta_e = calculate_delta_e_76(target_color, predicted)
 

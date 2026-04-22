@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { apiClient } from '@/lib/api/client'
 
 interface Project {
   project_id: string
@@ -41,20 +41,15 @@ export default function ProjectNavigator({
   selectedPatternId,
   selectedRoundId,
 }: ProjectNavigatorProps) {
-  const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
   const [patterns, setPatterns] = useState<Pattern[]>([])
   const [rounds, setRounds] = useState<Round[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Load projects
   useEffect(() => {
-    fetch('http://localhost:8000/api/projects/')
-      .then(res => res.json())
-      .then(data => setProjects(data))
+    apiClient.get<Project[]>('/api/projects/').then(setProjects)
   }, [])
 
-  // Load patterns for selected project
   useEffect(() => {
     if (!selectedProjectId) {
       setPatterns([])
@@ -64,8 +59,7 @@ export default function ProjectNavigator({
       return
     }
     setLoading(true)
-    fetch(`http://localhost:8000/api/patterns/?project_id=${selectedProjectId}`)
-      .then(res => res.json())
+    apiClient.get<Pattern[]>(`/api/patterns/?project_id=${selectedProjectId}`)
       .then(data => {
         setPatterns(data)
         onPatternSelect?.('')
@@ -75,7 +69,6 @@ export default function ProjectNavigator({
       })
   }, [selectedProjectId])
 
-  // Load rounds for selected pattern
   useEffect(() => {
     if (!selectedPatternId) {
       setRounds([])
@@ -83,8 +76,7 @@ export default function ProjectNavigator({
       return
     }
     setLoading(true)
-    fetch(`http://localhost:8000/api/rounds/?pattern_id=${selectedPatternId}`)
-      .then(res => res.json())
+    apiClient.get<Round[]>(`/api/rounds/?pattern_id=${selectedPatternId}`)
       .then(data => {
         setRounds(data)
         setLoading(false)
