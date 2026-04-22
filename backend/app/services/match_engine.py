@@ -191,11 +191,12 @@ class MatchEngine:
                     "thickness": 1.0,
                 }]
             }
+            base_L = base_color.get("L", 95.0)
             km_base = {
-                "L": base_color.get("L", 95.0),
+                "L": base_L,
                 "a": base_color.get("a", 0.0) + blended_a,
                 "b": base_color.get("b", 0.0) + blended_b,
-                "R_inf": 1.0,
+                "R_inf": ((base_L + 16.0) / 116.0) ** 3,
             }
 
             km_result = KubelkaMunkEngine.predict_recipe(recipe, km_base)

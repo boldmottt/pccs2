@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from uuid import uuid4
 from typing import List
 from sqlalchemy import text
@@ -59,18 +60,22 @@ async def create_pattern(pattern: PatternCreate, db: AsyncSession = Depends(get_
         )
         RETURNING *
     """)
-    result = await db.execute(stmt, {
-        "pattern_id": pattern_id,
-        "project_id": pattern.project_id,
-        "pattern_name": pattern.pattern_name,
-        "total_print_layers": pattern.total_print_layers,
-        "target_base_color_sci": json.dumps(pattern.target_base_color_sci.model_dump()) if pattern.target_base_color_sci else None,
-        "target_base_color_sce": json.dumps(pattern.target_base_color_sce.model_dump()) if pattern.target_base_color_sce else None,
-        "target_base_material": pattern.target_base_material,
-        "status": pattern.status or "DEVELOPING",
-        "notes": pattern.notes,
-    })
-    await db.commit()  # Changed from flush() to explicit commit
+    try:
+        result = await db.execute(stmt, {
+            "pattern_id": pattern_id,
+            "project_id": pattern.project_id,
+            "pattern_name": pattern.pattern_name,
+            "total_print_layers": pattern.total_print_layers,
+            "target_base_color_sci": json.dumps(pattern.target_base_color_sci.model_dump()) if pattern.target_base_color_sci else None,
+            "target_base_color_sce": json.dumps(pattern.target_base_color_sce.model_dump()) if pattern.target_base_color_sce else None,
+            "target_base_material": pattern.target_base_material,
+            "status": pattern.status or "DEVELOPING",
+            "notes": pattern.notes,
+        })
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=404, detail="Project not found")
     row = result.fetchone()
     return PatternResponse(**{key: getattr(row, key) for key in row._mapping.keys()})
 
