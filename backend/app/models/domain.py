@@ -134,7 +134,7 @@ class Ink(Base):
     __tablename__ = "inks"
 
     ink_id = Column(String, primary_key=True)
-    ink_name = Column(String, nullable=False)
+    ink_name = Column(String, nullable=False, unique=True)
     ink_category = Column(String, default=InkCategory.COLOR.value)
     manufacturer = Column(String, nullable=True)
     is_blend_ink = Column(Boolean, default=False)

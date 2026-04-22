@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.postgresql import JSONB
 from uuid import uuid4
 
@@ -88,8 +89,12 @@ async def create_ink(ink: InkCreate, db: AsyncSession = Depends(get_db_session))
     )
 
     db.add(db_ink)
-    await db.flush()
-    await db.refresh(db_ink)
+    try:
+        await db.flush()
+        await db.refresh(db_ink)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"Ink name '{ink.ink_name}' already exists")
 
     return ink_to_response(db_ink)
 
