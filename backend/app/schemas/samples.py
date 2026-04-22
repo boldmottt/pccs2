@@ -13,10 +13,12 @@ class CopyLayerRequest(BaseModel):
 
     Used by POST /api/samples/{sample_id}/copy-layer endpoint.
     - source_sample_id: the sample to copy the layer FROM
-    - layer_number: which layer number to copy
+    - source_layer_number: which layer number to copy from source
+    - target_layer_number: (optional) where to place in target; appends if omitted
     """
     source_sample_id: str
-    layer_number: int = Field(..., ge=1)
+    source_layer_number: int = Field(..., ge=1)
+    target_layer_number: Optional[int] = None
 
 
 class LayerInput(BaseModel):

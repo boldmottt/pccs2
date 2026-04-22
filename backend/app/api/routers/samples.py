@@ -209,19 +209,37 @@ async def copy_layer(
             break
 
     if not layer_to_copy:
-        raise HTTPException(status_code=404, detail=f"Layer {request.source_layer_number} not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Layer {request.source_layer_number} not found in source sample"
+        )
 
     # Update target sample
     target_layers = target.layers or []
-    found = False
-    for i, layer in enumerate(target_layers):
-        if layer.get("layer_number") == request.target_layer_number:
-            target_layers[i] = layer_to_copy
-            found = True
-            break
 
-    if not found:
-        target_layers.append(layer_to_copy)
+    if request.target_layer_number is not None:
+        # Find and replace existing layer at target position
+        found = False
+        for i, layer in enumerate(target_layers):
+            if layer.get("layer_number") == request.target_layer_number:
+                target_layers[i] = layer_to_copy.copy()  # shallow copy of dict
+                found = True
+                break
+
+        if not found:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Target layer {request.target_layer_number} not found in target sample"
+            )
+    else:
+        # No target specified — append as new layer with next available number
+        existing_numbers = {l.get("layer_number", 0) for l in target_layers}
+        next_num = 1
+        while next_num in existing_numbers:
+            next_num += 1
+        copied_layer = layer_to_copy.copy()
+        copied_layer["layer_number"] = next_num
+        target_layers.append(copied_layer)
 
     target_layers.sort(key=lambda x: x.get("layer_number", 0))
 

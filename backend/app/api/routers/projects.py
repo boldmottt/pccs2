@@ -93,7 +93,7 @@ async def delete_project(project_id: str, db: AsyncSession = Depends(get_db_sess
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    db.delete(db_project)
+    await db.delete(db_project)
     await db.commit()
 
     return {"message": "Project deleted"}

@@ -1,5 +1,5 @@
 import math
-from typing import Dict
+from typing import Dict, Optional
 
 
 def calculate_delta_e_76(color1: Dict[str, float], color2: Dict[str, float]) -> float:
@@ -41,9 +41,12 @@ def calculate_opacity_index(
 def calculate_weighted_average(
     colors: Dict[str, Dict[str, float]],
     weights: Dict[str, float]
-) -> Dict[str, float]:
+) -> Optional[Dict[str, float]]:
     """Calculate weighted average of colors"""
     total_weight = sum(weights.values())
+
+    if total_weight == 0:
+        return None  # No valid weights to average
 
     result = {}
     for channel in ["L", "a", "b"]:

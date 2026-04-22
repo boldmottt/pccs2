@@ -64,7 +64,7 @@ async def create_round(
         "operator": round_data.operator,
         "work_location": round_data.work_location,
     })
-    await db.flush()
+    await db.commit()  # Changed from flush() to explicit commit
     row = result.fetchone()
     return RoundResponse(**dict(row._mapping))
 
@@ -106,8 +106,10 @@ async def update_round(
             RETURNING *
         """)
         result = await db.execute(stmt, params)
-        await db.flush()
+        await db.commit()  # Added explicit commit
         row = result.fetchone()
+    else:
+        await db.commit()  # Added explicit commit for no-op case
 
     return RoundResponse(**dict(row._mapping))
 

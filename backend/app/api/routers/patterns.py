@@ -70,7 +70,7 @@ async def create_pattern(pattern: PatternCreate, db: AsyncSession = Depends(get_
         "status": pattern.status or "DEVELOPING",
         "notes": pattern.notes,
     })
-    await db.flush()
+    await db.commit()  # Changed from flush() to explicit commit
     row = result.fetchone()
     return PatternResponse(**{key: getattr(row, key) for key in row._mapping.keys()})
 
@@ -117,10 +117,12 @@ async def update_pattern(
             RETURNING *
         """)
         result = await db.execute(stmt, params)
-        await db.flush()
+        await db.commit()  # Added explicit commit
         row = result.fetchone()
+    else:
+        await db.commit()  # Added explicit commit for no-op case
 
-    return PatternResponse(**dict(row))
+    return PatternResponse(**{key: getattr(row, key) for key in row._mapping.keys()})
 
 
 @router.delete("/{pattern_id}")

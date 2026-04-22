@@ -35,11 +35,19 @@ class KubelkaMunkCoefficients:
         where a = 1 + K/S
 
         Args:
-            K_over_S: K/S ratio
+            K_over_S: K/S ratio (must be >= 0)
 
         Returns:
             Reflectance value (0-1)
+
+        Raises:
+            ValueError: If K_over_S is negative
         """
+        if K_over_S < 0:
+            raise ValueError(
+                f"K/S ratio must be non-negative, got {K_over_S}. "
+                "Negative K/S values are physically invalid."
+            )
         a = 1.0 + K_over_S
         sqrt_term = math.sqrt(a**2 - 1)
         R_inf = (a - sqrt_term) / (a + sqrt_term)

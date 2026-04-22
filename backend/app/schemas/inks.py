@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
-from pydantic.alias_generators import to_camel
 
 
 class InkCategoryEnum(str, Enum):
@@ -16,8 +15,6 @@ class InkCategoryEnum(str, Enum):
 class InkCreate(BaseModel):
     """Schema for creating a new ink master record."""
     model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
         use_enum_values=True,
     )
 
@@ -80,8 +77,7 @@ class InkCreate(BaseModel):
 class InkUpdate(BaseModel):
     """Schema for updating an existing ink record."""
     model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
+        use_enum_values=True,
     )
 
     ink_name: Optional[str] = Field(
@@ -135,8 +131,6 @@ class InkResponse(BaseModel):
     """Response schema for ink data."""
     model_config = ConfigDict(
         from_attributes=True,
-        alias_generator=to_camel,
-        populate_by_name=True,
     )
 
     ink_id: str = Field(..., description="Ink UUID")
