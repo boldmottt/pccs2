@@ -153,36 +153,37 @@ class HybridEngine:
     def _get_model_scores(self) -> Dict[str, Optional[float]]:
         """Get R^2 scores from trained ML models.
 
+        Uses the training data stored inside ml_engine (set during train())
+        to compute R^2 scores for each channel model.
+
         Returns:
-            Dictionary with keys "L", "a", "b" and R^2 scores as values.
+            Dictionary with keys 'L', 'a', 'b' and R^2 scores as values.
             Returns None scores if model not trained or not enough data.
         """
-        if not self.ml_engine.is_trained or len(self._training_data) < 2:
+        if not self.ml_engine.is_trained:
             return {"L": None, "a": None, "b": None}
 
-        # Prepare training data properly
-        X, y = self.ml_engine._prepare_training_data(self._training_data)
+        # Use training data stored inside ml_engine by FIX-009
+        X = self.ml_engine._training_X
+        y = self.ml_engine._training_y
+
+        if X.size == 0 or y.shape[0] < 2:
+            return {"L": None, "a": None, "b": None}
+
+        channel_map = [("L", 0, self.ml_engine.model_l),
+                       ("a", 1, self.ml_engine.model_a),
+                       ("b", 2, self.ml_engine.model_b)]
 
         scores = {}
-
-        # Get score from each channel model
-        for channel, model in [
-            ("L", self.ml_engine.model_l),
-            ("a", self.ml_engine.model_a),
-            ("b", self.ml_engine.model_b),
-        ]:
+        for channel_name, col_idx, model in channel_map:
             if model is not None:
                 try:
-                    # Score returns R^2 (coefficient of determination)
-                    r2 = model.score(X, y[:, list("Lab").index(channel)])
-                    if not np.isnan(r2):
-                        scores[channel] = float(r2)
-                    else:
-                        scores[channel] = None
+                    r2 = model.score(X, y[:, col_idx])
+                    scores[channel_name] = float(r2) if not np.isnan(r2) else None
                 except (ValueError, RuntimeError, IndexError):
-                    scores[channel] = None
+                    scores[channel_name] = None
             else:
-                scores[channel] = None
+                scores[channel_name] = None
 
         return scores
 
