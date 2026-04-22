@@ -142,6 +142,7 @@ class Ink(Base):
     solid_color_sci = Column(JSONB, nullable=True)
     solid_color_sce = Column(JSONB, nullable=True)
     delta_sci_sce = Column(Float, nullable=True)
+    k_over_s = Column(Float, nullable=True)
     gloss_index = Column(Float, nullable=True)
     gloss_GU = Column(Float, nullable=True)
     viscosity = Column(Float, nullable=True)
