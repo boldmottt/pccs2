@@ -25,12 +25,12 @@ jobs:
           cd frontend
           npm ci
 
+      - name: Lint
+        run: |
+          cd frontend
+          npx next lint
+
       - name: Build
         run: |
           cd frontend
           npm run build
-
-      - name: Lint
-        run: |
-          cd frontend
-          npm run lint
