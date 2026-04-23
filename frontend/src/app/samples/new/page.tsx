@@ -35,6 +35,12 @@ export default function NewSamplePage() {
 }
 
 function NewSampleContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
+  const roundId = searchParams.get('roundId')
+
+  const [formData, setFormData] = useState<FormData>({
     baseColorSci: { L: 0, a: 0, b: 0 },
     baseColorSce: { L: 0, a: 0, b: 0 },
     baseMaterial: '',
@@ -361,7 +367,7 @@ function NewSampleContent() {
               </div>
             ))}
             {formData.layers.length === 0 && (
-              <p className="text-gray-500 text-center py-4">레이어가 없습니다. "레이어 추가" 버튼을 클릭하세요.</p>
+              <p className="text-gray-500 text-center py-4">레이어가 없습니다. &quot;레이어 추가&quot; 버튼을 클릭하세요.</p>
             )}
           </div>
         </div>
