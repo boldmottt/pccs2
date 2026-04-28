@@ -15,7 +15,7 @@ from app.schemas.inks import (
 )
 from app.schemas.match import (
     MatchRequest, MatchResponse,
-    RecommendedRecipe, InkItemForMatch, CopyLayerRequest,
+    RecommendedRecipe, InkItemForMatch,
 )
 
 __all__ = [
@@ -25,5 +25,5 @@ __all__ = [
     "SampleCreate", "SampleUpdate", "SampleResponse",
     "LayerInput", "LayerResponse", "InkItem",
     "InkCreate", "InkUpdate", "InkResponse",
-    "MatchRequest", "MatchResponse", "RecommendedRecipe", "InkItemForMatch", "CopyLayerRequest",
+    "MatchRequest", "MatchResponse", "RecommendedRecipe", "InkItemForMatch",
 ]
