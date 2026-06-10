@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectsApi } from '@/lib/api/projects'
+import { getErrorMessage } from '@/lib/api/client'
+import type { ProjectCreate } from '@/lib/types/project'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { ArrowLeft } from 'lucide-react'
@@ -32,14 +34,14 @@ export default function NewProjectPage() {
 
   const mutation = useMutation({
     mutationFn: (data: ProjectFormData) => {
-      const payload: Record<string, unknown> = {
+      const payload: ProjectCreate = {
         project_name: data.project_name,
       }
       if (data.customer) payload.customer = data.customer
       if (data.start_date) payload.start_date = data.start_date
       if (data.target_completion) payload.target_completion = data.target_completion
       if (data.memo) payload.memo = data.memo
-      return projectsApi.create(payload as Parameters<typeof projectsApi.create>[0])
+      return projectsApi.create(payload)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -142,7 +144,7 @@ export default function NewProjectPage() {
 
         {mutation.isError && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            프로젝트 생성에 실패했습니다. 다시 시도해주세요.
+            프로젝트 생성에 실패했습니다: {getErrorMessage(mutation.error)}
           </div>
         )}
 

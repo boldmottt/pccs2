@@ -15,6 +15,22 @@ def calculate_delta_e_sci_sce(sci: Dict[str, float], sce: Dict[str, float]) -> f
     return calculate_delta_e_76(sci, sce)
 
 
+def lab_to_reflectance(color: Dict[str, float]) -> float:
+    """Approximate diffuse reflectance (R_inf) from a CIE Lab color.
+
+    Uses the inverse of the L* lightness function: L* -> Y/Yn, where the
+    luminance factor Y/Yn serves as the reflectance approximation required
+    by the Kubelka-Munk engine. Clamped to [0.001, 1.0] to keep the K-M
+    adding-up formula numerically stable.
+    """
+    L = max(0.0, min(100.0, color.get("L", 100.0)))
+    if L > 8.0:
+        y = ((L + 16.0) / 116.0) ** 3
+    else:
+        y = L / 903.3
+    return max(0.001, min(1.0, y))
+
+
 def calculate_gloss_index(delta_sci_sce: float, max_delta: float = 5.0) -> float:
     """Calculate gloss index (0-1)"""
     return min(delta_sci_sce / max_delta, 1.0)

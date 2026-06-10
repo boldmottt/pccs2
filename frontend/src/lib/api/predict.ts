@@ -1,29 +1,31 @@
 import { apiClient } from './client'
-import type { ColorXYZ, Layer } from '@/lib/types/project'
+import type { InkItem, Lab } from '@/lib/types/project'
+
+export interface PredictLayerInput {
+  ink_items?: InkItem[]
+  k_over_s?: number
+  thickness?: number
+}
 
 export interface PredictRequest {
   recipe: {
-    layers: Layer[]
-    thinnerAmount?: number
-    hardenerAmount?: number
+    layers: PredictLayerInput[]
+    thinner_amount?: number
+    hardener_amount?: number
   }
-  baseColor: ColorXYZ
+  base_color: Lab
 }
 
 export interface PredictResponse {
-  kmPrediction: ColorXYZ
-  mlCorrection: ColorXYZ | null
-  mlConfidence: number
-  finalPrediction: ColorXYZ
-  deltaE: number
+  km_prediction: Lab
+  ml_correction?: Lab | null
+  ml_confidence: number
+  final_prediction: Lab
+  delta_E: number
 }
 
 export const predictApi = {
-  predict: (request: PredictRequest) =>
-    apiClient.post<PredictResponse>('/api/predict', request),
+  predict: (data: PredictRequest) => apiClient.post<PredictResponse>('/api/predict/', data),
 
-  train: (historicalData: unknown[]) =>
-    apiClient.post<{ status: string; samplesTrained: number }>('/api/predict/train', historicalData),
-
-  health: () => apiClient.get<{ status: string; mlTrained: boolean }>('/api/predict/health'),
+  health: () => apiClient.get<{ status: string }>('/api/predict/health'),
 }

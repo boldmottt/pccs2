@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -26,7 +26,9 @@ class InkCreate(BaseModel):
 
 
 class InkUpdate(BaseModel):
-    ink_name: Optional[str] = None
+    model_config = ConfigDict(use_enum_values=True)
+
+    ink_name: Optional[str] = Field(None, min_length=1, max_length=200)
     ink_category: Optional[InkCategoryEnum] = None
     manufacturer: Optional[str] = None
     solid_color_sci: Optional[Dict[str, float]] = None
@@ -37,7 +39,18 @@ class InkUpdate(BaseModel):
     memo: Optional[str] = None
 
 
+class RegisterBlendRequest(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    ink_name: Optional[str] = None
+    ink_category: Optional[InkCategoryEnum] = None
+    manufacturer: Optional[str] = None
+    blend_recipe: Optional[Dict[str, Any]] = None
+
+
 class InkResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     ink_id: str
     ink_name: str
     ink_category: str
@@ -54,6 +67,3 @@ class InkResponse(BaseModel):
     memo: Optional[str]
     registered_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True

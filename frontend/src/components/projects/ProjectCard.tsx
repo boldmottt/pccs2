@@ -1,3 +1,5 @@
+'use client'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import type { Project } from '@/lib/types/project'
@@ -32,7 +34,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader>
-        <CardTitle className="text-xl">{project.projectName}</CardTitle>
+        <CardTitle className="text-xl">{project.project_name}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
@@ -44,14 +46,15 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/projects/${project.projectId}`)}
+            onClick={() => router.push(`/projects/${project.project_id}`)}
           >
             세부정보
           </Button>
         </div>
 
         <div className="text-sm text-gray-500">
-          <div>생성일: {formatDate(project.createdAt)}</div>
+          {project.customer && <div>고객사: {project.customer}</div>}
+          <div>생성일: {formatDate(project.created_at)}</div>
         </div>
       </CardContent>
     </Card>

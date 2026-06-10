@@ -8,14 +8,14 @@ from app.schemas.patterns import (
 from app.schemas.rounds import RoundCreate, RoundUpdate, RoundResponse
 from app.schemas.samples import (
     SampleCreate, SampleUpdate, SampleResponse,
-    LayerInput, LayerResponse, InkItem,
+    LayerInput, LayerResponse, InkItem, CopyLayerRequest,
 )
 from app.schemas.inks import (
-    InkCreate, InkUpdate, InkResponse,
+    InkCreate, InkUpdate, InkResponse, RegisterBlendRequest,
 )
 from app.schemas.match import (
     MatchRequest, MatchResponse,
-    RecommendedRecipe, InkItemForMatch, CopyLayerRequest,
+    RecommendedRecipe, InkItemForMatch,
 )
 
 __all__ = [
@@ -23,7 +23,7 @@ __all__ = [
     "PatternCreate", "PatternUpdate", "PatternResponse", "ColorData",
     "RoundCreate", "RoundUpdate", "RoundResponse",
     "SampleCreate", "SampleUpdate", "SampleResponse",
-    "LayerInput", "LayerResponse", "InkItem",
-    "InkCreate", "InkUpdate", "InkResponse",
-    "MatchRequest", "MatchResponse", "RecommendedRecipe", "InkItemForMatch", "CopyLayerRequest",
+    "LayerInput", "LayerResponse", "InkItem", "CopyLayerRequest",
+    "InkCreate", "InkUpdate", "InkResponse", "RegisterBlendRequest",
+    "MatchRequest", "MatchResponse", "RecommendedRecipe", "InkItemForMatch",
 ]

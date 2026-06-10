@@ -63,7 +63,9 @@ class Pattern(Base):
     target_base_material = Column(String, nullable=True)
     status = Column(String, default=PatternStatus.DEVELOPING.value)
     notes = Column(Text, nullable=True)
-    approved_sample_id = Column(String, ForeignKey("samples.sample_id"), nullable=True)
+    # Plain string reference (no FK constraint): a FK here would create a
+    # circular dependency between patterns and samples at table-creation time.
+    approved_sample_id = Column(String, nullable=True)
     success_rate = Column(Float, nullable=True)
     avg_delta_e = Column(Float, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -71,7 +73,12 @@ class Pattern(Base):
 
     project = relationship("Project", back_populates="patterns")
     rounds = relationship("Round", back_populates="pattern", cascade="all, delete-orphan")
-    samples = relationship("Sample", back_populates="pattern", cascade="all, delete-orphan")
+    samples = relationship(
+        "Sample",
+        back_populates="pattern",
+        foreign_keys="Sample.pattern_id",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index('idx_pattern_name', 'pattern_name'),

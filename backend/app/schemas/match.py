@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List, Dict
 
 
 class InkItemForMatch(BaseModel):
@@ -10,9 +10,9 @@ class InkItemForMatch(BaseModel):
 class MatchRequest(BaseModel):
     pattern_id: str
     target_color: Dict[str, float]
-    layer_number: int
+    layer_number: int = Field(..., ge=1)
     exclude_inks: Optional[List[str]] = None
-    max_components: Optional[int] = None
+    max_components: Optional[int] = Field(None, ge=1, le=4)
 
 
 class RecommendedRecipe(BaseModel):
@@ -25,13 +25,10 @@ class RecommendedRecipe(BaseModel):
 
 
 class MatchResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     result_id: str
     pattern_id: str
     recommended_recipes: List[RecommendedRecipe]
     engine_used: str
     model_version: str
-
-
-class CopyLayerRequest(BaseModel):
-    source_sample_id: str
-    layer_number: int

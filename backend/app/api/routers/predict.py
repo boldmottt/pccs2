@@ -8,6 +8,7 @@ from app.schemas.predict import (
     TrainResponse,
     HealthResponse,
 )
+from app.services.color_math import lab_to_reflectance
 from app.services.hybrid_engine import hybrid_engine
 
 router = APIRouter(prefix="/api/predict", tags=["prediction"])
@@ -62,8 +63,11 @@ async def predict_recipe(request: PredictRequest):
                 "thickness": layer.thickness,
             })
 
-        # Run prediction
-        base_color = request.base_color
+        # Run prediction. The K-M engine needs the substrate reflectance
+        # (R_inf), which is derived from the Lab lightness here so callers
+        # only ever supply {L, a, b}.
+        base_color = dict(request.base_color)
+        base_color.setdefault("R_inf", lab_to_reflectance(base_color))
         result = hybrid_engine.predict(engine_recipe, base_color)
 
         return PredictResponse(

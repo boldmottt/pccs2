@@ -1,6 +1,13 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List, Dict
 from datetime import datetime
+from enum import Enum
+
+
+class SampleSuccessFlagEnum(str, Enum):
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    PENDING = "PENDING"
 
 
 class InkItem(BaseModel):
@@ -9,6 +16,9 @@ class InkItem(BaseModel):
 
 
 class CopyLayerRequest(BaseModel):
+    """Copy a layer recipe from a source sample into the target sample."""
+
+    source_sample_id: str
     source_layer_number: int
     target_layer_number: int
 
@@ -25,40 +35,43 @@ class LayerInput(BaseModel):
 
 
 class SampleCreate(BaseModel):
-    round_id: str
-    sample_number: int
+    model_config = ConfigDict(use_enum_values=True)
+
     base_color_sci: Dict[str, float]
     base_color_sce: Dict[str, float]
-    base_material: str
-    layers: List[LayerInput]
+    base_material: Optional[str] = None
+    layers: List[LayerInput] = []
+    success_flag: SampleSuccessFlagEnum = SampleSuccessFlagEnum.PENDING
 
 
 class SampleUpdate(BaseModel):
-    sample_number: Optional[int] = None
+    model_config = ConfigDict(use_enum_values=True)
+
     base_color_sci: Optional[Dict[str, float]] = None
     base_color_sce: Optional[Dict[str, float]] = None
     base_material: Optional[str] = None
     layers: Optional[List[LayerInput]] = None
     final_delta_e: Optional[float] = None
-    success_flag: Optional[str] = None
+    success_flag: Optional[SampleSuccessFlagEnum] = None
     success_notes: Optional[str] = None
 
 
 class LayerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     layer_number: int
     ink_items: List[InkItem]
-    thinner_pct: Optional[float]
-    hardener_pct: Optional[float]
-    print_color_sci: Optional[Dict[str, float]]
-    print_color_sce: Optional[Dict[str, float]]
-    delta_E_from_target: Optional[float]
-    note: Optional[str]
-
-    class Config:
-        from_attributes = True
+    thinner_pct: Optional[float] = None
+    hardener_pct: Optional[float] = None
+    print_color_sci: Optional[Dict[str, float]] = None
+    print_color_sce: Optional[Dict[str, float]] = None
+    delta_E_from_target: Optional[float] = None
+    note: Optional[str] = None
 
 
 class SampleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     sample_id: str
     round_id: str
     pattern_id: str
@@ -72,6 +85,3 @@ class SampleResponse(BaseModel):
     success_notes: Optional[str]
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True

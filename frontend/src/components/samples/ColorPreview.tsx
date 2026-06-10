@@ -1,28 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import { predictApi } from '@/lib/api/predict'
+import { predictApi, type PredictResponse } from '@/lib/api/predict'
+import { getErrorMessage } from '@/lib/api/client'
 import { ColorComparison } from '@/components/color/ColorComparison'
 import { InkDonutChart, type InkData } from '@/components/visualization/InkDonutChart'
-import { ColorTrendChart, type DataPoint as ColorTrendDataPoint } from '@/components/visualization/ColorTrendChart'
-import type { ColorXYZ, Layer } from '@/lib/types/project'
+import type { Lab } from '@/lib/types/color'
+import type { Ink, Layer } from '@/lib/types/project'
 import { Button } from '@/components/ui/Button'
 
 interface ColorPreviewProps {
   layers: Layer[]
-  baseColor: ColorXYZ
-  onPredict: (prediction: PredictResult) => void
+  baseColor: Lab
+  onPredict?: (prediction: PredictResponse) => void
+  inks?: Ink[]
 }
 
-export interface PredictResult {
-  kmPrediction: ColorXYZ
-  mlCorrection: ColorXYZ | null
-  mlConfidence: number
-  finalPrediction: ColorXYZ
-  deltaE: number
-}
-
-// Generate consistent color from ink ID
+// 잉크 ID에서 일관된 표시 색상 생성
 function getColorForInk(inkId: string): string {
   const colors = [
     '#EF4444', '#F97316', '#F59E0B', '#84CC16',
@@ -36,15 +30,15 @@ function getColorForInk(inkId: string): string {
   return colors[Math.abs(hash) % colors.length]
 }
 
-export function ColorPreview({ layers, baseColor, onPredict }: ColorPreviewProps) {
-  const [prediction, setPrediction] = useState<PredictResult | null>(null)
+export function ColorPreview({ layers, baseColor, onPredict, inks = [] }: ColorPreviewProps) {
+  const [prediction, setPrediction] = useState<PredictResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [predictionHistory, setPredictionHistory] = useState<PredictResult[]>([])
+
+  const inkName = (inkId: string) => inks.find(i => i.ink_id === inkId)?.ink_name || inkId
 
   const handlePredict = async () => {
-    // Validate layers have inks
-    if (layers.some(l => l.inkItems.length === 0)) {
+    if (layers.length === 0 || layers.some(l => l.ink_items.length === 0)) {
       setError('모든 레이어에 잉크가 있어야 합니다.')
       return
     }
@@ -54,45 +48,17 @@ export function ColorPreview({ layers, baseColor, onPredict }: ColorPreviewProps
 
     try {
       const result = await predictApi.predict({
-        recipe: { layers },
-        baseColor
+        recipe: { layers: layers.map(l => ({ ink_items: l.ink_items })) },
+        base_color: baseColor,
       })
-      const predictResult: PredictResult = {
-        kmPrediction: result.kmPrediction,
-        mlCorrection: result.mlCorrection,
-        mlConfidence: result.mlConfidence,
-        finalPrediction: result.finalPrediction,
-        deltaE: result.deltaE
-      }
-      setPrediction(predictResult)
-      setPredictionHistory(prev => [...prev, predictResult])
-      onPredict(predictResult)
+      setPrediction(result)
+      onPredict?.(result)
     } catch (err) {
-      setError('예측 실패: ' + (err as Error).message)
+      setError('예측 실패: ' + getErrorMessage(err))
     } finally {
       setIsLoading(false)
     }
   }
-
-  // Calculate total inks for visualization
-  const allInks: InkData[] = layers.flatMap(layer =>
-    layer.inkItems.map(item => ({
-      inkId: item.inkId,
-      inkName: item.inkId,
-      amount: item.amount
-    }))
-  )
-
-  const totalAmount = allInks.reduce((sum, ink) => sum + ink.amount, 0)
-
-  // Prepare color trend data from history
-  const trendData: ColorTrendDataPoint[] = predictionHistory.map((pred, index) => ({
-    round: `Round ${index + 1}`,
-    L: pred.finalPrediction.L,
-    a: pred.finalPrediction.a,
-    b: pred.finalPrediction.b,
-    deltaE: pred.deltaE
-  }))
 
   return (
     <div className="border-t pt-6">
@@ -101,7 +67,7 @@ export function ColorPreview({ layers, baseColor, onPredict }: ColorPreviewProps
       <div className="flex items-center gap-4 mb-6">
         <Button
           onClick={handlePredict}
-          disabled={isLoading || layers.some(l => l.inkItems.length === 0)}
+          disabled={isLoading || layers.length === 0 || layers.some(l => l.ink_items.length === 0)}
           className="w-40"
         >
           {isLoading ? '예측 중...' : '예측 실행'}
@@ -118,10 +84,10 @@ export function ColorPreview({ layers, baseColor, onPredict }: ColorPreviewProps
         <div className="space-y-6">
           <ColorComparison
             color1={baseColor}
-            color2={prediction.finalPrediction}
+            color2={prediction.final_prediction}
             label1="베이스"
             label2="예측"
-            deltaE={prediction.deltaE}
+            deltaE={prediction.delta_E}
           />
 
           <div className="pt-4 border-t">
@@ -130,83 +96,71 @@ export function ColorPreview({ layers, baseColor, onPredict }: ColorPreviewProps
               <div>
                 <span className="text-gray-500">KM 예측:</span>
                 <div className="mt-1">
-                  L: {prediction.kmPrediction.L.toFixed(1)},
-                  a: {prediction.kmPrediction.a.toFixed(1)},
-                  b: {prediction.kmPrediction.b.toFixed(1)}
+                  L: {prediction.km_prediction.L.toFixed(1)},
+                  a: {prediction.km_prediction.a.toFixed(1)},
+                  b: {prediction.km_prediction.b.toFixed(1)}
                 </div>
               </div>
               <div>
                 <span className="text-gray-500">ML 보정 신뢰도:</span>
-                <div className="mt-1">{prediction.mlConfidence.toFixed(2)}</div>
+                <div className="mt-1">{prediction.ml_confidence.toFixed(2)}</div>
               </div>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Color trend chart */}
-          {predictionHistory.length > 1 && (
-            <div className="pt-4 border-t">
-              <ColorTrendChart
-                dataPoints={trendData}
-                targetColor={baseColor}
-              />
-            </div>
-          )}
+      {/* 레이어별 배합비 */}
+      {layers.some(l => l.ink_items.length > 0) && (
+        <div className="pt-4 mt-6 border-t">
+          <h4 className="font-medium mb-3">레이어별 배합비</h4>
+          <div className="space-y-4">
+            {layers.map(layer => {
+              const layerInks: InkData[] = layer.ink_items.map(item => ({
+                inkId: item.ink_id,
+                inkName: inkName(item.ink_id),
+                amount: item.amount,
+              }))
+              const layerTotal = layerInks.reduce((sum, ink) => sum + ink.amount, 0)
 
-          {/* Layer-by-layer ink breakdown */}
-          {layers.some(l => l.inkItems.length > 0) && (
-            <div className="pt-4 border-t">
-              <h4 className="font-medium mb-3">레이어별 배합비</h4>
-              <div className="space-y-4">
-                {layers.map(layer => {
-                  const layerInks: InkData[] = layer.inkItems.map(item => ({
-                    inkId: item.inkId,
-                    inkName: item.inkId,
-                    amount: item.amount
-                  }))
-                  const layerTotal = layerInks.reduce((sum, ink) => sum + ink.amount, 0)
-
-                  return (
-                    <div key={layer.layerNumber} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h5 className="font-medium">Layer {layer.layerNumber}</h5>
-                        <span className="text-xs text-gray-500">총량: {layerTotal.toFixed(1)}g</span>
-                      </div>
-                      {layerInks.length > 0 ? (
-                        <div className="flex items-center gap-4">
-                          <InkDonutChart
-                            inks={layerInks}
-                            totalAmount={layerTotal}
-                            size="sm"
-                            showLabels={false}
-                          />
-                          <div className="flex-1 space-y-1">
-                            {layerInks.map(item => (
-                              <div key={item.inkId} className="flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-2 h-2 rounded-full"
-                                    style={{
-                                      backgroundColor: getColorForInk(item.inkId)
-                                    }}
-                                  />
-                                  <span>{item.inkId}</span>
-                                </div>
-                                <span className="text-gray-500">
-                                  {item.amount.toFixed(1)}g ({((item.amount / layerTotal) * 100).toFixed(0)}%)
-                                </span>
-                              </div>
-                            ))}
+              return (
+                <div key={layer.layer_number} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h5 className="font-medium">{layer.layer_number}도</h5>
+                    <span className="text-xs text-gray-500">총량: {layerTotal.toFixed(1)}g</span>
+                  </div>
+                  {layerInks.length > 0 ? (
+                    <div className="flex items-center gap-4">
+                      <InkDonutChart
+                        inks={layerInks}
+                        totalAmount={layerTotal}
+                        size="sm"
+                        showLabels={false}
+                      />
+                      <div className="flex-1 space-y-1">
+                        {layerInks.map(item => (
+                          <div key={item.inkId} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: getColorForInk(item.inkId) }}
+                              />
+                              <span>{item.inkName}</span>
+                            </div>
+                            <span className="text-gray-500">
+                              {item.amount.toFixed(1)}g ({layerTotal > 0 ? ((item.amount / layerTotal) * 100).toFixed(0) : 0}%)
+                            </span>
                           </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-400">잉크가 없습니다.</p>
-                      )}
+                        ))}
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+                  ) : (
+                    <p className="text-sm text-gray-400">잉크가 없습니다.</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

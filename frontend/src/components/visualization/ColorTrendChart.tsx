@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import type { ColorXYZ } from '@/lib/types/color'
+import type { Lab } from '@/lib/types/color'
 
 export interface DataPoint {
   round: string
@@ -13,7 +13,7 @@ export interface DataPoint {
 
 interface ColorTrendChartProps {
   dataPoints: DataPoint[]
-  targetColor?: ColorXYZ
+  targetColor?: Lab
 }
 
 export function ColorTrendChart({ dataPoints, targetColor }: ColorTrendChartProps) {
@@ -186,7 +186,7 @@ export interface ColorTrendChartSummary {
   worstDeltaE: number
 }
 
-export function calculateTrendSummary(dataPoints: DataPoint[], targetColor?: ColorXYZ): ColorTrendChartSummary | null {
+export function calculateTrendSummary(dataPoints: DataPoint[], targetColor?: Lab): ColorTrendChartSummary | null {
   if (dataPoints.length === 0) return null
 
   const LValues = dataPoints.map(d => d.L)

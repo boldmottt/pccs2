@@ -1,9 +1,10 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, Dict
 from datetime import datetime
+from enum import Enum
 
 
-class PatternStatusEnum(str):
+class PatternStatusEnum(str, Enum):
     DEVELOPING = "DEVELOPING"
     COMPLETED = "COMPLETED"
     ON_HOLD = "ON_HOLD"
@@ -16,28 +17,36 @@ class ColorData(BaseModel):
 
 
 class PatternCreate(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     project_id: str
-    pattern_name: str
+    pattern_name: str = Field(..., min_length=1, max_length=200)
     total_print_layers: int = Field(..., ge=1, le=10)
     target_base_color_sci: Optional[ColorData] = None
     target_base_color_sce: Optional[ColorData] = None
     target_base_material: Optional[str] = None
-    status: Optional[str] = "DEVELOPING"
+    status: PatternStatusEnum = PatternStatusEnum.DEVELOPING
     notes: Optional[str] = None
 
 
 class PatternUpdate(BaseModel):
-    pattern_name: Optional[str] = None
-    total_print_layers: Optional[int] = None
+    model_config = ConfigDict(use_enum_values=True)
+
+    pattern_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    total_print_layers: Optional[int] = Field(None, ge=1, le=10)
     target_base_color_sci: Optional[ColorData] = None
     target_base_color_sce: Optional[ColorData] = None
     target_base_material: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[PatternStatusEnum] = None
     notes: Optional[str] = None
     approved_sample_id: Optional[str] = None
+    success_rate: Optional[float] = None
+    avg_delta_e: Optional[float] = None
 
 
 class PatternResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     pattern_id: str
     project_id: str
     pattern_name: str
@@ -52,6 +61,3 @@ class PatternResponse(BaseModel):
     avg_delta_e: Optional[float]
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
