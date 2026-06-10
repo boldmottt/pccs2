@@ -3,12 +3,7 @@
 import { useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-
-export interface Ink {
-  inkId: string
-  inkName: string
-  category: string
-}
+import type { Ink } from '@/lib/types/project'
 
 interface InkSelectorProps {
   inks: Ink[]
@@ -20,11 +15,12 @@ export function InkSelector({ inks, onSelect, defaultAmount = 10 }: InkSelectorP
   const [selectedInk, setSelectedInk] = useState<string>('')
   const [amount, setAmount] = useState<number>(defaultAmount)
 
+  const selected = inks.find(i => i.ink_id === selectedInk)
+
   const handleAdd = () => {
-    const ink = inks.find(i => i.inkId === selectedInk)
-    if (ink && amount > 0) {
-      onSelect(ink, amount)
-      setAmount(10) // Reset to default
+    if (selected && amount > 0) {
+      onSelect(selected, amount)
+      setAmount(defaultAmount)
     }
   }
 
@@ -33,14 +29,19 @@ export function InkSelector({ inks, onSelect, defaultAmount = 10 }: InkSelectorP
       <div className="flex-1 min-w-[200px]">
         <Select value={selectedInk} onValueChange={setSelectedInk}>
           <SelectTrigger>
-            <SelectValue placeholder="잉크 선택" />
+            <SelectValue placeholder="잉크 선택">{selected?.ink_name}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {inks.map(ink => (
-              <SelectItem key={ink.inkId} value={ink.inkId}>
-                {ink.inkName}
-              </SelectItem>
-            ))}
+            {inks.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-gray-400">등록된 잉크가 없습니다.</li>
+            ) : (
+              inks.map(ink => (
+                <SelectItem key={ink.ink_id} value={ink.ink_id}>
+                  {ink.ink_name}
+                  <span className="ml-2 text-xs text-gray-400">{ink.ink_category}</span>
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>

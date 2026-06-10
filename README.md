@@ -12,10 +12,13 @@
 - 마스터 잉크 등록 (배합 잉크 → 마스터 변환)
 - 배합비 복사 기능 (레이어 단위)
 
+- 배합 추천 (/match — K-M 기반 잉크 조합 탐색)
+- 색상 예측 (/predict — 하이브리드 K-M + ML 엔진)
+
 ## Tech Stack
 
-- **Backend:** Python 3.11, FastAPI, SQLAlchemy (Async), PostgreSQL
-- **Frontend:** Next.js 16, React 19, TypeScript, Tailwind CSS 4
+- **Backend:** Python 3.11, FastAPI, SQLAlchemy 2 (Async), PostgreSQL (운영) / SQLite (개발·테스트)
+- **Frontend:** Next.js 16, React 19, TypeScript, Tailwind CSS, TanStack Query
 - **ML:** XGBoost, scikit-learn, NumPy/SciPy
 
 ## Project Structure
@@ -26,16 +29,16 @@ PCCS2/
 │   ├── app/
 │   │   ├── models/            # SQLAlchemy ORM models
 │   │   ├── api/routers/       # REST API endpoints
-│   │   ├── engines/           # Color prediction engines
-│   │   ├── services/          # Business logic
-│   │   └── database/          # DB session & repository
+│   │   ├── schemas/           # Pydantic request/response schemas
+│   │   ├── services/          # K-M/ML engines, color math, recipe matcher
+│   │   └── database/          # Async DB session
 │   └── tests/
 │
 ├── frontend/                   # Next.js Frontend
 │   └── src/
-│       ├── app/               # Pages
+│       ├── app/               # Pages (projects, patterns, samples, inks, match)
 │       ├── components/        # UI components
-│       └── lib/               # Utilities
+│       └── lib/               # API clients & types (snake_case 계약)
 │
 └── docs/
     └── superpowers/
@@ -66,12 +69,13 @@ pip install -r requirements.txt
 # Set environment variables
 cp .env.example .env
 # Edit .env with your database URL
-
-# Run migrations (if using Alembic)
-alembic upgrade head
+# (개발용 SQLite: DATABASE_URL=sqlite:///./pccs2.db — 테이블은 기동 시 자동 생성)
 
 # Start development server
 uvicorn app.main:app --reload
+
+# Run tests
+pytest tests/ --cov=app
 ```
 
 API Documentation: http://localhost:8000/docs
@@ -172,12 +176,12 @@ For production, ensure you:
 - `DELETE /api/rounds/{id}` - Delete round
 
 ### Samples
-- `POST /api/samples/round/{id}` - Create sample
-- `GET /api/samples/` - List samples
+- `POST /api/samples/round/{id}` - Create sample (sample_number 자동 부여)
+- `GET /api/samples/` - List samples (`?round_id=`, `?pattern_id=` 필터)
 - `GET /api/samples/{id}` - Get sample
 - `PUT /api/samples/{id}` - Update sample
 - `DELETE /api/samples/{id}` - Delete sample
-- `POST /api/samples/{id}/copy-layer` - Copy layer recipe
+- `POST /api/samples/{id}/copy-layer` - Copy layer recipe (body: `{source_sample_id, source_layer_number, target_layer_number}`)
 
 ### Inks
 - `POST /api/inks/` - Create ink
@@ -188,7 +192,12 @@ For production, ensure you:
 - `POST /api/inks/{id}/register-blend` - Register blend as master ink
 
 ### Match (Recipe Recommendation)
-- `POST /api/match/` - Get recipe recommendations
+- `POST /api/match/` - Get recipe recommendations (마스터 잉크 조합 탐색, ΔE 기준 상위 3개)
+
+### Predict (Color Prediction)
+- `POST /api/predict/` - Predict color for a recipe (K-M + ML)
+- `POST /api/predict/train` - Train ML correction model
+- `GET /api/predict/health` - Engine health/training status
 
 ## Key Concepts
 

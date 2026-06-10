@@ -1,8 +1,9 @@
 import { cn } from '@/lib/utils'
 import { convertLabToRgb } from '@/lib/types/color'
+import type { Lab } from '@/lib/types/color'
 
 interface ColorSwatchProps {
-  color: { L: number; a: number; b: number }
+  color: Lab
   label?: string
   size?: 'sm' | 'md' | 'lg'
 }

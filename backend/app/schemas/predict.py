@@ -53,7 +53,7 @@ class TrainRequest(BaseModel):
     historical_data: List[Dict] = Field(
         ...,
         description="List of historical data entries for training",
-        example=[
+        json_schema_extra={"examples": [
             {
                 "recipe": {
                     "layers": [
@@ -64,7 +64,7 @@ class TrainRequest(BaseModel):
                 "km_prediction": {"L": 95.0, "a": 1.0, "b": 2.0},
                 "actual_measurement": {"L": 94.5, "a": 1.2, "b": 1.8},
             }
-        ],
+        ]},
     )
 
 
@@ -90,6 +90,8 @@ class PredictResponse(BaseModel):
 
 class TrainResponse(BaseModel):
     """Response schema for training endpoint."""
+
+    model_config = ConfigDict(protected_namespaces=())
 
     samples_trained: int = Field(..., description="Number of samples used for training")
     model_scores: Dict[str, Optional[float]] = Field(

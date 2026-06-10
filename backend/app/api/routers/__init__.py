@@ -4,5 +4,6 @@ from app.api.routers import rounds
 from app.api.routers import samples
 from app.api.routers import inks
 from app.api.routers import match
+from app.api.routers import predict
 
-__all__ = ["projects", "patterns", "rounds", "samples", "inks", "match"]
+__all__ = ["projects", "patterns", "rounds", "samples", "inks", "match", "predict"]

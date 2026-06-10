@@ -1,15 +1,8 @@
 'use client'
 
 import { LayerEditor } from './LayerEditor'
-import { InkSelector, type Ink } from './InkSelector'
-import type { InkItem } from '@/lib/types/project'
-
-export interface LayerWithAddInk {
-  layerNumber: number
-  inkItems: InkItem[]
-  thinnerPct?: number
-  hardenerPct?: number
-}
+import { InkSelector } from './InkSelector'
+import type { Ink, InkItem } from '@/lib/types/project'
 
 interface LayerEditorWithSelectorProps {
   layerNumber: number
@@ -42,6 +35,7 @@ export function LayerEditorWithSelector({
         inkItems={inkItems}
         thinnerPct={thinnerPct}
         hardenerPct={hardenerPct}
+        inks={inks}
         onInksChange={onInksChange}
         onThinnerChange={onThinnerChange}
         onHardenerChange={onHardenerChange}

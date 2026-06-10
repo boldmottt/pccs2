@@ -1,24 +1,23 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime, date
 
 
 class RoundCreate(BaseModel):
-    pattern_id: str
-    round_number: int = Field(..., ge=1)
     work_date: Optional[date] = None
     operator: Optional[str] = None
     work_location: Optional[str] = None
 
 
 class RoundUpdate(BaseModel):
-    round_number: Optional[int] = None
     work_date: Optional[date] = None
     operator: Optional[str] = None
     work_location: Optional[str] = None
 
 
 class RoundResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     round_id: str
     pattern_id: str
     round_number: int
@@ -27,6 +26,3 @@ class RoundResponse(BaseModel):
     work_location: Optional[str]
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True

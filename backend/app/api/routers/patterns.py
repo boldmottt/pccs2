@@ -1,130 +1,76 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
-from typing import List
-from sqlalchemy import text
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db_session
+from app.models.domain import Pattern, Project
 from app.schemas.patterns import PatternCreate, PatternUpdate, PatternResponse
 
 router = APIRouter(prefix="/api/patterns", tags=["patterns"])
 
 
+async def _get_pattern_or_404(pattern_id: str, db: AsyncSession) -> Pattern:
+    pattern = await db.get(Pattern, pattern_id)
+    if pattern is None:
+        raise HTTPException(status_code=404, detail="Pattern not found")
+    return pattern
+
+
 @router.get("/", response_model=List[PatternResponse])
 async def list_patterns(
-    project_id: str = None,
-    status: str = None,
+    project_id: Optional[str] = None,
+    status: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db_session),
 ):
-    where_clauses = []
-    params = {"skip": skip, "limit": limit}
-
+    stmt = select(Pattern).order_by(Pattern.created_at.desc()).offset(skip).limit(limit)
     if project_id:
-        where_clauses.append("project_id = :project_id")
-        params["project_id"] = project_id
+        stmt = stmt.where(Pattern.project_id == project_id)
     if status:
-        where_clauses.append("status = :status")
-        params["status"] = status
-
-    where_sql = " AND ".join(where_clauses)
-    where_sql = "WHERE " + where_sql if where_sql else ""
-
-    stmt = text(f"""
-        SELECT * FROM patterns
-        {where_sql}
-        ORDER BY created_at DESC
-        LIMIT :limit OFFSET :skip
-    """)
-    result = await db.execute(stmt, params)
-    rows = result.fetchall()
-    return [PatternResponse(**dict(row)) for row in rows]
+        stmt = stmt.where(Pattern.status == status)
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 
-@router.post("/", response_model=PatternResponse)
+@router.post("/", response_model=PatternResponse, status_code=201)
 async def create_pattern(pattern: PatternCreate, db: AsyncSession = Depends(get_db_session)):
-    pattern_id = str(uuid4())
-    stmt = text("""
-        INSERT INTO patterns (
-            pattern_id, project_id, pattern_name, total_print_layers,
-            target_base_color_sci, target_base_color_sce, target_base_material,
-            status, notes, created_at, updated_at
-        )
-        VALUES (
-            :pattern_id, :project_id, :pattern_name, :total_print_layers,
-            :target_base_color_sci, :target_base_color_sce, :target_base_material,
-            :status, :notes, NOW(), NOW()
-        )
-        RETURNING *
-    """)
-    result = await db.execute(stmt, {
-        "pattern_id": pattern_id,
-        "project_id": pattern.project_id,
-        "pattern_name": pattern.pattern_name,
-        "total_print_layers": pattern.total_print_layers,
-        "target_base_color_sci": pattern.target_base_color_sci.model_dump() if pattern.target_base_color_sci else None,
-        "target_base_color_sce": pattern.target_base_color_sce.model_dump() if pattern.target_base_color_sce else None,
-        "target_base_material": pattern.target_base_material,
-        "status": pattern.status or "DEVELOPING",
-        "notes": pattern.notes,
-    })
-    row = result.fetchone()
-    return PatternResponse(**dict(row))
+    if await db.get(Project, pattern.project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    data = pattern.model_dump()
+    db_pattern = Pattern(pattern_id=str(uuid4()), **data)
+    db.add(db_pattern)
+    await db.commit()
+    await db.refresh(db_pattern)
+    return db_pattern
 
 
 @router.get("/{pattern_id}", response_model=PatternResponse)
 async def get_pattern(pattern_id: str, db: AsyncSession = Depends(get_db_session)):
-    stmt = text("SELECT * FROM patterns WHERE pattern_id = :pattern_id")
-    result = await db.execute(stmt, {"pattern_id": pattern_id})
-    row = result.fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Pattern not found")
-    return PatternResponse(**dict(row))
+    return await _get_pattern_or_404(pattern_id, db)
 
 
 @router.put("/{pattern_id}", response_model=PatternResponse)
 async def update_pattern(
     pattern_id: str,
     pattern: PatternUpdate,
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db_session),
 ):
-    stmt_check = text("SELECT * FROM patterns WHERE pattern_id = :pattern_id")
-    result = await db.execute(stmt_check, {"pattern_id": pattern_id})
-    row = result.fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Pattern not found")
-
-    update_fields = []
-    params = {"pattern_id": pattern_id}
+    db_pattern = await _get_pattern_or_404(pattern_id, db)
     for field, value in pattern.model_dump(exclude_unset=True).items():
-        if value is not None:
-            if field in ["target_base_color_sci", "target_base_color_sce"] and isinstance(value, dict):
-                params[field] = value
-            elif hasattr(value, 'value'):
-                params[field] = value.value
-            else:
-                params[field] = value
-            update_fields.append(f"{field} = :{field}")
-
-    if update_fields:
-        stmt = text(f"""
-            UPDATE patterns
-            SET {', '.join(update_fields)}, updated_at = NOW()
-            WHERE pattern_id = :pattern_id
-            RETURNING *
-        """)
-        result = await db.execute(stmt, params)
-        row = result.fetchone()
-
-    return PatternResponse(**dict(row))
+        setattr(db_pattern, field, value)
+    await db.commit()
+    await db.refresh(db_pattern)
+    return db_pattern
 
 
 @router.delete("/{pattern_id}")
 async def delete_pattern(pattern_id: str, db: AsyncSession = Depends(get_db_session)):
-    stmt = text("DELETE FROM patterns WHERE pattern_id = :pattern_id")
-    result = await db.execute(stmt, {"pattern_id": pattern_id})
-    if result.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Pattern not found")
+    db_pattern = await _get_pattern_or_404(pattern_id, db)
+    await db.delete(db_pattern)
     await db.commit()
     return {"message": "Pattern deleted"}

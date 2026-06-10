@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { X } from 'lucide-react'
-import type { InkItem } from '@/lib/types/project'
+import type { Ink, InkItem } from '@/lib/types/project'
 
 interface LayerEditorProps {
   layerNumber: number
@@ -13,7 +13,7 @@ interface LayerEditorProps {
   onInksChange: (items: InkItem[]) => void
   onThinnerChange: (value: number) => void
   onHardenerChange: (value: number) => void
-  inks?: { inkId: string; inkName: string; category: string }[]
+  inks?: Ink[]
 }
 
 export function LayerEditor({
@@ -36,7 +36,7 @@ export function LayerEditor({
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle>Layer {layerNumber}</CardTitle>
+          <CardTitle>{layerNumber}도</CardTitle>
           <span className="text-sm text-gray-500">총량: {totalAmount.toFixed(1)}g</span>
         </div>
       </CardHeader>
@@ -47,14 +47,14 @@ export function LayerEditor({
           ) : (
             <div className="space-y-2">
               {inkItems.map((item, index) => {
-                const inkInfo = inks.find(i => i.inkId === item.inkId)
+                const inkInfo = inks.find(i => i.ink_id === item.ink_id)
                 return (
                   <div
                     key={index}
                     className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
                   >
                     <div>
-                      <span className="font-medium">{inkInfo?.inkName || item.inkId}</span>
+                      <span className="font-medium">{inkInfo?.ink_name || item.ink_id}</span>
                       <span className="text-gray-500 ml-2">{item.amount.toFixed(1)}g</span>
                     </div>
                     <Button

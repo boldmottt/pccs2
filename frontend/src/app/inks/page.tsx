@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { inksApi, type InkCreateData } from '@/lib/api/inks'
-import type { Ink } from '@/lib/types/project'
+import { inksApi } from '@/lib/api/inks'
+import { getErrorMessage } from '@/lib/api/client'
+import type { Ink, InkCreate } from '@/lib/types/project'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Plus, X, Beaker, ChevronDown } from 'lucide-react'
@@ -30,21 +31,21 @@ function CategoryBadge({ category }: { category: string }) {
 }
 
 function InkCard({ ink }: { ink: Ink }) {
-  const sci = ink.solidColorSci as Record<string, number> | undefined
+  const sci = ink.solid_color_sci
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
       <div className="flex items-start justify-between mb-2">
-        <h3 className="font-semibold text-gray-900 truncate pr-2">{ink.inkName}</h3>
-        <CategoryBadge category={ink.inkCategory} />
+        <h3 className="font-semibold text-gray-900 truncate pr-2">{ink.ink_name}</h3>
+        <CategoryBadge category={ink.ink_category} />
       </div>
       {ink.manufacturer && (
         <p className="text-sm text-gray-500 mb-2">{ink.manufacturer}</p>
       )}
       <div className="flex items-center gap-3 text-xs text-gray-400">
         {sci && (
-          <span>L*{sci.L?.toFixed(1)} a*{sci.a?.toFixed(1)} b*{sci.b?.toFixed(1)}</span>
+          <span>L*{sci.L.toFixed(1)} a*{sci.a.toFixed(1)} b*{sci.b.toFixed(1)}</span>
         )}
-        {ink.isBlendInk && (
+        {ink.is_blend_ink && (
           <span className="text-emerald-600 font-medium">Blend</span>
         )}
       </div>
@@ -58,7 +59,7 @@ function InkCard({ ink }: { ink: Ink }) {
 function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const queryClient = useQueryClient()
 
-  const [form, setForm] = useState<InkCreateData>({
+  const [form, setForm] = useState<InkCreate>({
     ink_name: '',
     ink_category: 'COLOR',
   })
@@ -66,7 +67,7 @@ function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSu
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const mutation = useMutation({
-    mutationFn: (data: InkCreateData) => inksApi.create(data),
+    mutationFn: (data: InkCreate) => inksApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inks'] })
       onSuccess()
@@ -88,10 +89,11 @@ function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSu
     mutation.mutate(form)
   }
 
-  const updateField = <K extends keyof InkCreateData>(field: K, value: InkCreateData[K]) => {
+  const updateField = <K extends keyof InkCreate>(field: K, value: InkCreate[K]) => {
     setForm({ ...form, [field]: value })
     if (errors[field]) {
-      const { [field]: _, ...rest } = errors
+      const rest = { ...errors }
+      delete rest[field]
       setErrors(rest)
     }
   }
@@ -124,7 +126,7 @@ function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSu
             <select
               id="ink_category"
               value={form.ink_category}
-              onChange={e => updateField('ink_category', e.target.value as InkCreateData['ink_category'])}
+              onChange={e => updateField('ink_category', e.target.value as InkCreate['ink_category'])}
               className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
             >
               {INK_CATEGORIES.map(cat => (
@@ -283,7 +285,7 @@ function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSu
 
         {mutation.isError && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            잉크 등록에 실패했습니다. 다시 시도해주세요.
+            잉크 등록에 실패했습니다: {getErrorMessage(mutation.error)}
           </div>
         )}
 
@@ -304,16 +306,16 @@ export default function InksPage() {
   const [showForm, setShowForm] = useState(false)
   const [filterCategory, setFilterCategory] = useState<string>('')
 
-  const { data: inks, isLoading } = useQuery({
+  const { data: inks, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['inks', filterCategory],
-    queryFn: () => inksApi.getAll(filterCategory ? { category: filterCategory } : undefined),
+    queryFn: () => inksApi.list(filterCategory ? { category: filterCategory } : undefined),
   })
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Inks</h1>
+          <h1 className="text-3xl font-bold text-gray-900">잉크</h1>
           <p className="text-gray-600 mt-1">잉크 마스터 데이터</p>
         </div>
         {!showForm && (
@@ -356,11 +358,18 @@ export default function InksPage() {
       </div>
 
       {isLoading ? (
-        <div className="p-8 text-center text-gray-500">Loading inks...</div>
+        <div className="p-8 text-center text-gray-500">잉크를 불러오는 중...</div>
+      ) : isError ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+          <p className="text-red-600 mb-4">{getErrorMessage(error)}</p>
+          <Button variant="outline" onClick={() => refetch()}>
+            다시 시도
+          </Button>
+        </div>
       ) : inks && inks.length > 0 ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {inks.map(ink => (
-            <InkCard key={ink.inkId} ink={ink} />
+            <InkCard key={ink.ink_id} ink={ink} />
           ))}
         </div>
       ) : (

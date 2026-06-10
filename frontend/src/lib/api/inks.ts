@@ -1,20 +1,8 @@
 import { apiClient } from './client'
-import type { Ink } from '@/lib/types/project'
-
-export interface InkCreateData {
-  ink_name: string
-  ink_category: 'COLOR' | 'TRANSPARENT' | 'EFFECT' | 'ADDITIVE'
-  manufacturer?: string
-  solid_color_sci?: { L: number; a: number; b: number }
-  solid_color_sce?: { L: number; a: number; b: number }
-  gloss_GU?: number
-  viscosity?: number
-  density?: number
-  memo?: string
-}
+import type { Ink, InkCreate } from '@/lib/types/project'
 
 export const inksApi = {
-  getAll: (params?: { category?: string; is_blend?: boolean }) => {
+  list: (params?: { category?: string; is_blend?: boolean }) => {
     const searchParams = new URLSearchParams()
     if (params?.category) searchParams.set('category', params.category)
     if (params?.is_blend !== undefined) searchParams.set('is_blend', String(params.is_blend))
@@ -22,15 +10,23 @@ export const inksApi = {
     return apiClient.get<Ink[]>(`/api/inks/${query ? `?${query}` : ''}`)
   },
 
-  getById: (id: string) =>
-    apiClient.get<Ink>(`/api/inks/${id}`),
+  get: (inkId: string) => apiClient.get<Ink>(`/api/inks/${inkId}`),
 
-  create: (data: InkCreateData) =>
-    apiClient.post<Ink>('/api/inks/', data),
+  create: (data: InkCreate) => apiClient.post<Ink>('/api/inks/', data),
 
-  update: (id: string, data: Partial<InkCreateData>) =>
-    apiClient.put<Ink>(`/api/inks/${id}`, data),
+  update: (inkId: string, data: Partial<InkCreate>) =>
+    apiClient.put<Ink>(`/api/inks/${inkId}`, data),
 
-  delete: (id: string) =>
-    apiClient.delete<void>(`/api/inks/${id}`),
+  remove: (inkId: string) => apiClient.delete<void>(`/api/inks/${inkId}`),
+
+  /** 배합 잉크를 마스터 잉크로 등록 (스펙 3.2). 잉크가 없으면 새로 생성 */
+  registerBlend: (
+    inkId: string,
+    data?: {
+      ink_name?: string
+      ink_category?: string
+      manufacturer?: string
+      blend_recipe?: Record<string, unknown>
+    },
+  ) => apiClient.post<Ink>(`/api/inks/${inkId}/register-blend`, data ?? {}),
 }
