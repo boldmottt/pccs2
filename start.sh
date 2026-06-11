@@ -27,7 +27,7 @@ EOF
 fi
 
 echo "[3/4] 백엔드 서버 시작 (http://localhost:8000)..."
-uvicorn app.main:app --port 8000 &
+uvicorn app.main:app --port 8000 --reload &
 BACKEND_PID=$!
 
 # ---------- Frontend ----------

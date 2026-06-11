@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/Input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select'
 import { LayerEditorWithSelector } from '@/components/samples/LayerEditorWithSelector'
 import { ColorPreview } from '@/components/samples/ColorPreview'
-import { Plus, Layers, X, BadgePlus } from 'lucide-react'
+import { Plus, Layers, X, BadgePlus, CopyPlus } from 'lucide-react'
 
 const COPIED_LAYER_KEY = 'pccs2-copied-layer'
 
@@ -284,6 +284,34 @@ function NewSampleForm() {
 
   const inks: Ink[] = inksQuery.data ?? []
 
+  // 이전 샘플 불러오기: 기존 배합을 통째로 가져와 수정 후 새 샘플로 저장
+  const allSamplesQuery = useQuery({
+    queryKey: ['samples'],
+    queryFn: () => samplesApi.list(),
+  })
+  const allPatternsQuery = useQuery({
+    queryKey: ['patterns'],
+    queryFn: () => patternsApi.list(),
+  })
+  const patternName = (patternId: string) =>
+    allPatternsQuery.data?.find(p => p.pattern_id === patternId)?.pattern_name ?? ''
+
+  const recentSamples = [...(allSamplesQuery.data ?? [])]
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))
+    .slice(0, 30)
+
+  const [loadedFrom, setLoadedFrom] = useState<string | null>(null)
+
+  const loadFromSample = (sampleId: string) => {
+    const sample = allSamplesQuery.data?.find(s => s.sample_id === sampleId)
+    if (!sample) return
+    setBaseSci({ ...sample.base_color_sci })
+    setBaseSce({ ...sample.base_color_sce })
+    setBaseMaterial(sample.base_material)
+    setLayers(sample.layers.map(l => ({ ...l, ink_items: l.ink_items.map(i => ({ ...i })) })))
+    setLoadedFrom(`${patternName(sample.pattern_id)} 샘플 ${sample.sample_number}`)
+  }
+
   const createMutation = useMutation({
     mutationFn: (data: SampleCreate) => samplesApi.create(roundId, data),
     onSuccess: created => {
@@ -351,6 +379,45 @@ function NewSampleForm() {
       </div>
 
       {!roundId && <RoundPicker onRoundSelected={setRoundId} />}
+
+      {/* 이전 샘플 불러오기 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-1">
+          <CopyPlus className="w-5 h-5" />
+          이전 샘플 불러오기
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">
+          기존 샘플의 배합비·베이스 정보를 그대로 가져와서 수정 후 새 샘플로 저장할 수 있습니다.
+        </p>
+        {recentSamples.length === 0 ? (
+          <p className="text-sm text-gray-400">불러올 샘플이 없습니다.</p>
+        ) : (
+          <div className="max-w-md">
+            <Select value="" onValueChange={loadFromSample}>
+              <SelectTrigger>
+                <SelectValue placeholder="샘플 선택 (최근 30개)">
+                  {loadedFrom ? `불러옴: ${loadedFrom}` : undefined}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {recentSamples.map(sample => (
+                  <SelectItem key={sample.sample_id} value={sample.sample_id}>
+                    {`${patternName(sample.pattern_id) || '패턴 미상'} · 샘플 ${sample.sample_number}`}
+                    {sample.final_delta_e !== null && sample.final_delta_e !== undefined
+                      ? ` (ΔE ${sample.final_delta_e.toFixed(1)})`
+                      : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {loadedFrom && (
+          <p className="text-sm text-emerald-600 mt-3">
+            ✓ {loadedFrom}의 배합을 불러왔습니다. 아래에서 수정 후 저장하세요.
+          </p>
+        )}
+      </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
