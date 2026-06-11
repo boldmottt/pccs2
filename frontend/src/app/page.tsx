@@ -6,7 +6,7 @@ import { projectsApi } from '@/lib/api/projects'
 import { samplesApi } from '@/lib/api/samples'
 import { inksApi } from '@/lib/api/inks'
 import { SuccessFlagBadge } from '@/components/samples/SuccessFlagBadge'
-import { FolderKanban, Beaker, FlaskConical, Wand2, Database } from 'lucide-react'
+import { FolderKanban, Beaker, FlaskConical, Wand2, Database, Square } from 'lucide-react'
 
 const NAV_CARDS = [
   {
@@ -26,6 +26,12 @@ const NAV_CARDS = [
     title: '샘플',
     description: '샘플 배합비 관리',
     Icon: FlaskConical,
+  },
+  {
+    href: '/bases',
+    title: '베이스',
+    description: '베이스(소재·도장) 마스터',
+    Icon: Square,
   },
   {
     href: '/match',

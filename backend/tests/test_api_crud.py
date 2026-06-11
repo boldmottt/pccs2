@@ -458,3 +458,45 @@ def test_predict_without_resolvable_inks_falls_back(api_client):
         "base_color": {"L": 80.0, "a": 0.0, "b": 2.0},
     })
     assert resp.status_code == 200
+
+
+# ---------- Base Master ----------
+
+def test_base_master_crud(api_client):
+    created = api_client.post("/api/bases/", json={
+        "base_code": "K-1116S",
+        "base_name": "새틀 패턴 도장",
+        "material": "Dd",
+        "color_sci": {"L": 73.0, "a": -2.1, "b": 5.2},
+        "color_sce": {"L": 71.5, "a": -2.0, "b": 5.0},
+        "maker": "HT-77",
+    })
+    assert created.status_code == 201
+    base = created.json()
+    assert base["base_code"] == "K-1116S"
+
+    listed = api_client.get("/api/bases/").json()
+    assert any(b["base_id"] == base["base_id"] for b in listed)
+
+    searched = api_client.get("/api/bases/", params={"q": "1116"}).json()
+    assert len(searched) == 1
+
+    got = api_client.get(f"/api/bases/{base['base_id']}").json()
+    assert got["color_sci"]["L"] == 73.0
+
+    updated = api_client.put(f"/api/bases/{base['base_id']}", json={"material": "ABS"})
+    assert updated.json()["material"] == "ABS"
+
+    deleted = api_client.delete(f"/api/bases/{base['base_id']}")
+    assert deleted.status_code == 200
+    assert api_client.get(f"/api/bases/{base['base_id']}").status_code == 404
+
+
+def test_base_master_duplicate_code_conflict(api_client):
+    api_client.post("/api/bases/", json={"base_code": "DUP-1"})
+    dup = api_client.post("/api/bases/", json={"base_code": "DUP-1"})
+    assert dup.status_code == 409
+
+    other = api_client.post("/api/bases/", json={"base_code": "DUP-2"}).json()
+    conflict = api_client.put(f"/api/bases/{other['base_id']}", json={"base_code": "DUP-1"})
+    assert conflict.status_code == 409

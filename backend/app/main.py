@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database.session import dispose_engine, get_engine
 from app.models.domain import Base
-from app.api.routers import projects, patterns, rounds, samples, inks, match, predict, import_rdp
+from app.api.routers import projects, patterns, rounds, samples, inks, match, predict, import_rdp, bases
 
 settings = get_settings()
 
@@ -36,6 +36,7 @@ app.add_middleware(
 )
 
 app.include_router(projects.router)
+app.include_router(bases.router)
 app.include_router(patterns.router)
 app.include_router(rounds.router)
 app.include_router(samples.router)
