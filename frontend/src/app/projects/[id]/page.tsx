@@ -2,6 +2,7 @@
 
 import { use, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectsApi } from '@/lib/api/projects'
 import { patternsApi } from '@/lib/api/patterns'
@@ -11,7 +12,7 @@ import { labToCss } from '@/lib/types/color'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
-import { ArrowLeft, Pencil, Plus, X } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Trash2, X } from 'lucide-react'
 
 const PROJECT_STATUS_LABEL: Record<Project['status'], string> = {
   IN_PROGRESS: '진행 중',
@@ -288,8 +289,28 @@ function EditProjectForm({ project, onClose }: { project: Project; onClose: () =
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const router = useRouter()
+  const queryClient = useQueryClient()
   const [showPatternForm, setShowPatternForm] = useState(false)
   const [editingProject, setEditingProject] = useState(false)
+
+  const deleteMutation = useMutation({
+    mutationFn: () => projectsApi.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      router.push('/projects')
+    },
+  })
+
+  const handleDelete = () => {
+    if (
+      window.confirm(
+        '이 프로젝트를 삭제할까요?\n프로젝트에 속한 패턴·라운드·샘플이 모두 함께 삭제됩니다.',
+      )
+    ) {
+      deleteMutation.mutate()
+    }
+  }
 
   const projectQuery = useQuery({
     queryKey: ['projects', id],
@@ -343,6 +364,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <Button variant="outline" size="sm" onClick={() => setEditingProject(true)}>
                   <Pencil className="w-3.5 h-3.5 mr-1" />
                   수정
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={deleteMutation.isPending}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  삭제
                 </Button>
               </div>
             </div>

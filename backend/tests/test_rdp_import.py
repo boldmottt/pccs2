@@ -157,3 +157,35 @@ def test_import_rejects_sqlite_without_rdp_mixes(api_client, tmp_path):
     resp = _upload(api_client, path)
     assert resp.status_code == 400
     assert "rdp_mixes" in resp.json()["detail"]
+
+
+def test_local_status_missing_file(api_client, tmp_path):
+    resp = api_client.get(
+        "/api/import/rdp/local-status", params={"path": str(tmp_path / "no.db")}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["exists"] is False
+    assert body["path"].endswith("no.db")
+
+
+def test_local_status_existing_file(api_client, rdp_db_file):
+    resp = api_client.get("/api/import/rdp/local-status", params={"path": str(rdp_db_file)})
+    body = resp.json()
+    assert body["exists"] is True
+    assert body["size"] > 0
+    assert "modified_at" in body
+
+
+def test_local_import_from_path(api_client, rdp_db_file):
+    resp = api_client.post("/api/import/rdp/local", json={"path": str(rdp_db_file)})
+    assert resp.status_code == 200
+    assert resp.json()["samples_created"] == 4
+
+    again = api_client.post("/api/import/rdp/local", json={"path": str(rdp_db_file)})
+    assert again.json()["samples_skipped"] == 4
+
+
+def test_local_import_missing_file_404(api_client, tmp_path):
+    resp = api_client.post("/api/import/rdp/local", json={"path": str(tmp_path / "no.db")})
+    assert resp.status_code == 404

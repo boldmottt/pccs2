@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-key-not-for-production"
     CORS_ORIGINS: str = "http://localhost:3000"
 
+    # 로컬 rdp.db 자동 가져오기 경로 (비우면 기본 경로 시도)
+    RDP_DB_PATH: str = ""
+
     # ML
     ML_MODEL_PATH: str = "models/"
     CLOUD_TRAINING_ENABLED: bool = False
