@@ -201,6 +201,9 @@ For production, ensure you:
 ### Match (Recipe Recommendation)
 - `POST /api/match/` - Get recipe recommendations (마스터 잉크 조합 탐색, ΔE 기준 상위 3개)
 
+### Import (RDP-DB 가져오기)
+- `POST /api/import/rdp` - rdp.db(SQLite) 업로드 → Project/Pattern/Round/Sample 일괄 변환 (중복 자동 건너뜀)
+
 ### Predict (Color Prediction)
 - `POST /api/predict/` - Predict color for a recipe (K-M + ML)
 - `POST /api/predict/train` - Train ML correction model

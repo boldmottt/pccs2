@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FolderKanban, Beaker, FlaskConical, Wand2 } from 'lucide-react'
+import { FolderKanban, Beaker, FlaskConical, Wand2, Database } from 'lucide-react'
 
 const NAV_CARDS = [
   {
@@ -25,6 +25,12 @@ const NAV_CARDS = [
     title: '배합 추천',
     description: 'AI 기반 잉크 배합비 추천',
     Icon: Wand2,
+  },
+  {
+    href: '/import',
+    title: 'RDP-DB 가져오기',
+    description: '작업일지 배합비 DB 일괄 등록',
+    Icon: Database,
   },
 ]
 

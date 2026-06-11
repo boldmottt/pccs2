@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database.session import dispose_engine, get_engine
 from app.models.domain import Base
-from app.api.routers import projects, patterns, rounds, samples, inks, match, predict
+from app.api.routers import projects, patterns, rounds, samples, inks, match, predict, import_rdp
 
 settings = get_settings()
 
@@ -42,6 +42,7 @@ app.include_router(samples.router)
 app.include_router(inks.router)
 app.include_router(match.router)
 app.include_router(predict.router)
+app.include_router(import_rdp.router)
 
 
 @app.get("/")

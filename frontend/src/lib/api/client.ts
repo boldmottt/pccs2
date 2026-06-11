@@ -88,4 +88,11 @@ export const apiClient = {
   delete<T>(endpoint: string): Promise<T> {
     return request<T>(endpoint, { method: 'DELETE' })
   },
+
+  /** multipart 파일 업로드 (Content-Type은 브라우저가 boundary와 함께 자동 설정) */
+  postFile<T>(endpoint: string, file: File, fieldName = 'file'): Promise<T> {
+    const form = new FormData()
+    form.append(fieldName, file)
+    return request<T>(endpoint, { method: 'POST', body: form })
+  },
 }
