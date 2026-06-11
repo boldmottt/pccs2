@@ -5,5 +5,6 @@ from app.api.routers import samples
 from app.api.routers import inks
 from app.api.routers import match
 from app.api.routers import predict
+from app.api.routers import import_rdp
 
-__all__ = ["projects", "patterns", "rounds", "samples", "inks", "match", "predict"]
+__all__ = ["projects", "patterns", "rounds", "samples", "inks", "match", "predict", "import_rdp"]
