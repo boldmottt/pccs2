@@ -1,6 +1,11 @@
 """Prediction API endpoints for K-M + ML engine."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database.session import get_db_session
+from app.models.domain import Ink
 from app.schemas.predict import (
     PredictRequest,
     PredictResponse,
@@ -8,14 +13,17 @@ from app.schemas.predict import (
     TrainResponse,
     HealthResponse,
 )
-from app.services.color_math import lab_to_reflectance
+from app.services.color_math import calculate_weighted_average, lab_to_reflectance
 from app.services.hybrid_engine import hybrid_engine
 
 router = APIRouter(prefix="/api/predict", tags=["prediction"])
 
 
 @router.post("/", response_model=PredictResponse)
-async def predict_recipe(request: PredictRequest):
+async def predict_recipe(
+    request: PredictRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
     """Predict color for given recipe using hybrid K-M + ML engine.
 
     Takes a recipe with layers and base color, runs K-M prediction,
@@ -32,6 +40,20 @@ async def predict_recipe(request: PredictRequest):
         HTTPException: If prediction fails due to invalid input
     """
     try:
+        # 잉크 ID → 측색값(solid_color_sci) 매핑: ink_items로 들어온 배합을
+        # K/S로 변환하려면 각 잉크의 단색 측정값이 필요하다.
+        ink_ids = {
+            item["ink_id"]
+            for layer in request.recipe.layers
+            if layer.k_over_s is None and layer.ink_items
+            for item in layer.ink_items
+            if isinstance(item, dict) and item.get("ink_id")
+        }
+        ink_colors: dict = {}
+        if ink_ids:
+            rows = (await db.scalars(select(Ink).where(Ink.ink_id.in_(ink_ids)))).all()
+            ink_colors = {i.ink_id: i.solid_color_sci for i in rows if i.solid_color_sci}
+
         # Build engine-compatible recipe from request
         # Accept either k_over_s directly or convert from ink_items
         engine_recipe = {
@@ -43,25 +65,47 @@ async def predict_recipe(request: PredictRequest):
         for layer in request.recipe.layers:
             # Use k_over_s directly if provided, otherwise calculate from ink_items
             layer_k_over_s = layer.k_over_s
+            layer_color = None
 
-            # If no k_over_s provided but ink_items exist, try to extract k_over_s
-            # from ink_items dicts (they might already contain k_over_s values)
             if layer_k_over_s is None and layer.ink_items:
-                # Assume ink_items might contain k_over_s values directly
+                # 하위호환: ink_items에 k_over_s 값이 직접 담겨 온 경우 합산
                 k_over_s_sum = 0.0
                 for ink_item in layer.ink_items:
                     if isinstance(ink_item, dict) and "k_over_s" in ink_item:
                         k_over_s_sum += ink_item["k_over_s"]
-                layer_k_over_s = k_over_s_sum
+
+                if k_over_s_sum > 0:
+                    layer_k_over_s = k_over_s_sum
+                else:
+                    # {ink_id, amount} 배합: 잉크 측색값을 양 가중 평균해
+                    # 레이어 색을 구하고 반사율로 K/S를 산출한다.
+                    colors: dict = {}
+                    weights: dict = {}
+                    for ink_item in layer.ink_items:
+                        if not isinstance(ink_item, dict):
+                            continue
+                        iid = ink_item.get("ink_id")
+                        amount = float(ink_item.get("amount") or 0)
+                        if iid in ink_colors and amount > 0:
+                            colors[iid] = ink_colors[iid]
+                            weights[iid] = amount
+                    if colors:
+                        layer_color = calculate_weighted_average(colors, weights)
+                        reflectance = lab_to_reflectance(layer_color)
+                        layer_k_over_s = (1.0 - reflectance) ** 2 / (2.0 * reflectance)
 
             # If still no k_over_s, default to 0 (no ink effect)
             if layer_k_over_s is None:
                 layer_k_over_s = 0.0
 
-            engine_recipe["layers"].append({
+            engine_layer = {
                 "k_over_s": layer_k_over_s,
                 "thickness": layer.thickness,
-            })
+            }
+            if layer_color is not None:
+                engine_layer["color_a"] = layer_color["a"]
+                engine_layer["color_b"] = layer_color["b"]
+            engine_recipe["layers"].append(engine_layer)
 
         # Run prediction. The K-M engine needs the substrate reflectance
         # (R_inf), which is derived from the Lab lightness here so callers

@@ -413,3 +413,48 @@ class TestCascadeDelete:
         assert api_client.get(f"/api/patterns/{pattern['pattern_id']}").status_code == 404
         assert api_client.get(f"/api/rounds/{round_['round_id']}").status_code == 404
         assert api_client.get(f"/api/samples/{sample['sample_id']}").status_code == 404
+
+
+def test_predict_with_ink_items_uses_ink_colors(api_client):
+    """ink_id+amount 배합 예측 시 잉크 측색값이 실제로 반영되어야 한다 (회귀: 항상 흰색 예측)."""
+    bk = api_client.post("/api/inks/", json={
+        "ink_name": "BK predict", "ink_category": "COLOR",
+        "solid_color_sci": {"L": 5.0, "a": 0.0, "b": 0.0},
+    }).json()
+    ye = api_client.post("/api/inks/", json={
+        "ink_name": "YE predict", "ink_category": "COLOR",
+        "solid_color_sci": {"L": 80.0, "a": 5.0, "b": 70.0},
+    }).json()
+
+    resp = api_client.post("/api/predict/", json={
+        "recipe": {"layers": [{
+            "layer_number": 1,
+            "ink_items": [
+                {"ink_id": bk["ink_id"], "amount": 20.0},
+                {"ink_id": ye["ink_id"], "amount": 10.0},
+            ],
+        }]},
+        "base_color": {"L": 80.0, "a": 0.0, "b": 2.0},
+    })
+    assert resp.status_code == 200
+    body = resp.json()
+    final = body["final_prediction"]
+    # 검정 위주 배합: 베이스(L=80)보다 확실히 어두워야 한다
+    assert final["L"] < 60.0
+    # 노랑 잉크의 b+ 가 반영되어야 한다
+    assert final["b"] > 2.0
+
+
+def test_predict_without_resolvable_inks_falls_back(api_client):
+    """측색값 없는 잉크만 있으면 K/S=0 (기존 동작 유지)."""
+    ink = api_client.post("/api/inks/", json={
+        "ink_name": "no-color predict", "ink_category": "COLOR",
+    }).json()
+    resp = api_client.post("/api/predict/", json={
+        "recipe": {"layers": [{
+            "layer_number": 1,
+            "ink_items": [{"ink_id": ink["ink_id"], "amount": 10.0}],
+        }]},
+        "base_color": {"L": 80.0, "a": 0.0, "b": 2.0},
+    })
+    assert resp.status_code == 200
