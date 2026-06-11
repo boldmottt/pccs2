@@ -5,7 +5,7 @@ import { predictApi, type PredictResponse } from '@/lib/api/predict'
 import { getErrorMessage } from '@/lib/api/client'
 import { ColorComparison } from '@/components/color/ColorComparison'
 import { InkDonutChart, type InkData } from '@/components/visualization/InkDonutChart'
-import type { Lab } from '@/lib/types/color'
+import { labToCss, type Lab } from '@/lib/types/color'
 import type { Ink, Layer } from '@/lib/types/project'
 import { Button } from '@/components/ui/Button'
 
@@ -36,6 +36,12 @@ export function ColorPreview({ layers, baseColor, onPredict, inks = [] }: ColorP
   const [error, setError] = useState<string | null>(null)
 
   const inkName = (inkId: string) => inks.find(i => i.ink_id === inkId)?.ink_name || inkId
+
+  // 측색값이 있으면 실제 잉크 색, 없으면 해시 팔레트 색
+  const inkColor = (inkId: string) => {
+    const sci = inks.find(i => i.ink_id === inkId)?.solid_color_sci
+    return sci ? labToCss(sci) : getColorForInk(inkId)
+  }
 
   const handlePredict = async () => {
     if (layers.length === 0 || layers.some(l => l.ink_items.length === 0)) {
@@ -120,6 +126,7 @@ export function ColorPreview({ layers, baseColor, onPredict, inks = [] }: ColorP
                 inkId: item.ink_id,
                 inkName: inkName(item.ink_id),
                 amount: item.amount,
+                color: inkColor(item.ink_id),
               }))
               const layerTotal = layerInks.reduce((sum, ink) => sum + ink.amount, 0)
 
@@ -143,7 +150,7 @@ export function ColorPreview({ layers, baseColor, onPredict, inks = [] }: ColorP
                             <div className="flex items-center gap-2">
                               <div
                                 className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: getColorForInk(item.inkId) }}
+                                style={{ backgroundColor: item.color ?? getColorForInk(item.inkId) }}
                               />
                               <span>{item.inkName}</span>
                             </div>

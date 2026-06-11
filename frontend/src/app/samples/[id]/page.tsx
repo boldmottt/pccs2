@@ -15,6 +15,8 @@ import { Input } from '@/components/ui/Input'
 import { ColorSwatch } from '@/components/color/ColorSwatch'
 import { ColorComparison } from '@/components/color/ColorComparison'
 import { SuccessFlagBadge } from '@/components/samples/SuccessFlagBadge'
+import { InkDonutChart, type InkData } from '@/components/visualization/InkDonutChart'
+import { labToCss } from '@/lib/types/color'
 import { ArrowLeft, Pencil, Trash2, X } from 'lucide-react'
 
 const SUCCESS_FLAG_LABEL: Record<SuccessFlag, string> = {
@@ -147,8 +149,23 @@ function EditSampleForm({ sample, onClose }: { sample: Sample; onClose: () => vo
   )
 }
 
-function LayerCard({ layer, inkName }: { layer: Layer; inkName: (inkId: string) => string }) {
+function LayerCard({
+  layer,
+  inkName,
+  inkColor,
+}: {
+  layer: Layer
+  inkName: (inkId: string) => string
+  inkColor: (inkId: string) => string
+}) {
   const totalAmount = layer.ink_items.reduce((sum, item) => sum + item.amount, 0)
+
+  const donutInks: InkData[] = layer.ink_items.map(item => ({
+    inkId: item.ink_id,
+    inkName: inkName(item.ink_id),
+    amount: item.amount,
+    color: inkColor(item.ink_id),
+  }))
 
   return (
     <Card>
@@ -159,16 +176,29 @@ function LayerCard({ layer, inkName }: { layer: Layer; inkName: (inkId: string) 
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          {layer.ink_items.map((item, index) => (
-            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm">
-              <span className="font-medium">{inkName(item.ink_id)}</span>
-              <span className="text-gray-500">
-                {item.amount.toFixed(1)}g
-                {totalAmount > 0 ? ` (${((item.amount / totalAmount) * 100).toFixed(0)}%)` : ''}
-              </span>
+        <div className="flex items-center gap-5">
+          {totalAmount > 0 && (
+            <div className="shrink-0">
+              <InkDonutChart inks={donutInks} totalAmount={totalAmount} size="sm" showLabels={false} />
             </div>
-          ))}
+          )}
+          <div className="flex-1 space-y-2">
+            {layer.ink_items.map((item, index) => (
+              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm">
+                <span className="flex items-center gap-2 font-medium">
+                  <span
+                    className="w-3 h-3 rounded-full border border-gray-200 shrink-0"
+                    style={{ backgroundColor: donutInks[index]?.color }}
+                  />
+                  {inkName(item.ink_id)}
+                </span>
+                <span className="text-gray-500">
+                  {item.amount.toFixed(1)}g
+                  {totalAmount > 0 ? ` (${((item.amount / totalAmount) * 100).toFixed(0)}%)` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-4 text-sm text-gray-600">
@@ -241,6 +271,22 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
 
   const inkName = (inkId: string) =>
     inksQuery.data?.find(i => i.ink_id === inkId)?.ink_name || inkId
+
+  // 측색값이 있으면 실제 잉크 색, 없으면 잉크 ID 기반 고정 팔레트 색
+  const inkColor = (inkId: string) => {
+    const sci = inksQuery.data?.find(i => i.ink_id === inkId)?.solid_color_sci
+    if (sci) return labToCss(sci)
+    const palette = [
+      '#EF4444', '#F97316', '#F59E0B', '#84CC16',
+      '#10B981', '#06B6D4', '#3B82F6', '#6366F1',
+      '#8B5CF6', '#EC4899', '#F43F5E', '#A8A29E',
+    ]
+    let hash = 0
+    for (let i = 0; i < inkId.length; i++) {
+      hash = inkId.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return palette[Math.abs(hash) % palette.length]
+  }
 
   if (sampleQuery.isLoading) {
     return (
@@ -368,7 +414,7 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
       )}
       <div className="space-y-4">
         {sample.layers.map(layer => (
-          <LayerCard key={layer.layer_number} layer={layer} inkName={inkName} />
+          <LayerCard key={layer.layer_number} layer={layer} inkName={inkName} inkColor={inkColor} />
         ))}
       </div>
     </div>

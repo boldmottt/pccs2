@@ -6,7 +6,7 @@ import { patternsApi } from '@/lib/api/patterns'
 import { inksApi } from '@/lib/api/inks'
 import { matchApi, type MatchRequest, type RecommendedRecipe } from '@/lib/api/match'
 import { getErrorMessage } from '@/lib/api/client'
-import type { Lab } from '@/lib/types/color'
+import { labToCss, type Lab } from '@/lib/types/color'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select'
@@ -18,15 +18,18 @@ function RecipeCard({
   recipe,
   targetColor,
   inkName,
+  inkColor,
 }: {
   recipe: RecommendedRecipe
   targetColor: Lab
   inkName: (inkId: string) => string
+  inkColor: (inkId: string) => string | undefined
 }) {
   const inkData: InkData[] = recipe.recipe.map(item => ({
     inkId: item.ink_id,
     inkName: inkName(item.ink_id),
     amount: item.amount,
+    color: inkColor(item.ink_id),
   }))
   const totalAmount = inkData.reduce((sum, ink) => sum + ink.amount, 0)
 
@@ -98,6 +101,12 @@ export default function MatchPage() {
 
   const inkName = (inkId: string) =>
     inksQuery.data?.find(i => i.ink_id === inkId)?.ink_name || inkId
+
+  // 측색값이 있으면 실제 잉크 색 (없으면 차트 내장 팔레트 사용)
+  const inkColor = (inkId: string) => {
+    const sci = inksQuery.data?.find(i => i.ink_id === inkId)?.solid_color_sci
+    return sci ? labToCss(sci) : undefined
+  }
 
   const handlePatternChange = (id: string) => {
     setPatternId(id)
@@ -276,6 +285,7 @@ export default function MatchPage() {
                   recipe={recipe}
                   targetColor={targetColor}
                   inkName={inkName}
+                  inkColor={inkColor}
                 />
               ))}
             </div>
