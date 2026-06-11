@@ -111,6 +111,17 @@ export default function ImportPage() {
           이 컴퓨터의 <code className="bg-gray-100 px-1 rounded">rdp.db</code>를 직접 읽습니다 — 파일 첨부가 필요 없습니다.
         </p>
 
+        {statusQuery.isError && (
+          <div className="p-3 rounded-lg border bg-red-50 border-red-200 text-sm text-red-700 mb-4">
+            <p className="font-medium">백엔드에서 로컬 파일 상태를 확인하지 못했습니다.</p>
+            <p className="text-xs mt-1">
+              백엔드 서버가 구버전으로 실행 중일 수 있습니다 — 터미널에서 서버를 종료(Ctrl+C)하고{' '}
+              <code className="bg-red-100 px-1 rounded">./start.sh</code>로 다시 시작해 주세요.
+            </p>
+            <p className="text-xs mt-1 text-red-500">{getErrorMessage(statusQuery.error)}</p>
+          </div>
+        )}
+
         {status && (
           <div
             className={`p-3 rounded-lg border text-sm mb-4 ${

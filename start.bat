@@ -26,7 +26,7 @@ if not exist .env (
 )
 
 echo [3/4] 백엔드 서버 시작 (http://localhost:8000)...
-start "PCCS2 Backend" cmd /k "cd /d %~dp0backend && call venv\Scripts\activate.bat && uvicorn app.main:app --port 8000"
+start "PCCS2 Backend" cmd /k "cd /d %~dp0backend && call venv\Scripts\activate.bat && uvicorn app.main:app --port 8000 --reload"
 
 REM ---------- Frontend ----------
 cd ..\frontend
