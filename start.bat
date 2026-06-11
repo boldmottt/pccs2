@@ -18,7 +18,7 @@ if not exist venv (
 
 echo [2/4] 백엔드 의존성 확인 중...
 call venv\Scripts\activate.bat
-pip install -r requirements.txt -q
+pip install -r requirements.txt -q --timeout 60 --retries 10
 
 if not exist .env (
     echo DATABASE_URL=sqlite:///./pccs2.db> .env
