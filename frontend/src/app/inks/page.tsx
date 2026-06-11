@@ -102,6 +102,20 @@ function InkRegistrationForm({
     },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: () => inksApi.remove(ink!.ink_id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inks'] })
+      onSuccess()
+    },
+  })
+
+  const handleDelete = () => {
+    if (ink && window.confirm(`잉크 "${ink.ink_name}"을(를) 삭제할까요?`)) {
+      deleteMutation.mutate()
+    }
+  }
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
     if (!form.ink_name.trim()) {
@@ -316,14 +330,34 @@ function InkRegistrationForm({
             {ink ? '잉크 수정' : '잉크 등록'}에 실패했습니다: {getErrorMessage(mutation.error)}
           </div>
         )}
+        {deleteMutation.isError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            잉크 삭제에 실패했습니다: {getErrorMessage(deleteMutation.error)}
+          </div>
+        )}
 
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="outline" type="button" onClick={onClose}>
-            취소
-          </Button>
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? '저장 중...' : ink ? '저장' : '잉크마스터 등록'}
-          </Button>
+        <div className="flex justify-between gap-3 pt-2">
+          {ink ? (
+            <Button
+              variant="outline"
+              type="button"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              className="text-red-600 border-red-200 hover:bg-red-50"
+            >
+              {deleteMutation.isPending ? '삭제 중...' : '삭제'}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-3">
+            <Button variant="outline" type="button" onClick={onClose}>
+              취소
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? '저장 중...' : ink ? '저장' : '잉크마스터 등록'}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

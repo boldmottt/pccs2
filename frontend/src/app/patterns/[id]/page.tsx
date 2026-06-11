@@ -2,6 +2,7 @@
 
 import { use, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { patternsApi } from '@/lib/api/patterns'
 import { roundsApi } from '@/lib/api/rounds'
@@ -14,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { ColorTrendChart, type DataPoint } from '@/components/visualization/ColorTrendChart'
 import { SuccessFlagBadge } from '@/components/samples/SuccessFlagBadge'
-import { ArrowLeft, Pencil, Plus, X } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Trash2, X } from 'lucide-react'
 
 const PATTERN_STATUS_LABEL: Record<Pattern['status'], string> = {
   DEVELOPING: '개발 중',
@@ -232,8 +233,26 @@ function EditPatternForm({ pattern, onClose }: { pattern: Pattern; onClose: () =
 
 export default function PatternDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [editingPattern, setEditingPattern] = useState(false)
+
+  const deletePatternMutation = useMutation({
+    mutationFn: () => patternsApi.remove(id),
+  })
+
+  const handleDeletePattern = (projectId?: string) => {
+    if (
+      window.confirm('이 패턴을 삭제할까요?\n패턴에 속한 라운드·샘플이 모두 함께 삭제됩니다.')
+    ) {
+      deletePatternMutation.mutate(undefined, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['patterns'] })
+          router.push(projectId ? `/projects/${projectId}` : '/projects')
+        },
+      })
+    }
+  }
 
   const patternQuery = useQuery({
     queryKey: ['patterns', 'detail', id],
@@ -348,6 +367,16 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
               <Button variant="outline" size="sm" onClick={() => setEditingPattern(true)}>
                 <Pencil className="w-3.5 h-3.5 mr-1" />
                 수정
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDeletePattern(pattern.project_id)}
+                disabled={deletePatternMutation.isPending}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                삭제
               </Button>
             </div>
           </div>

@@ -1,18 +1,23 @@
 """RDP-DB 가져오기 API.
 
 POST /api/import/rdp — rdp.db(SQLite) 파일 업로드 → PCCS2 계층으로 변환.
+POST /api/import/rdp/local — 서버 로컬 경로의 rdp.db를 직접 읽어 가져오기.
+GET  /api/import/rdp/local-status — 로컬 rdp.db 경로/존재 여부 확인.
 같은 파일을 다시 올려도 이미 가져온 배합(RDP 고유키)은 건너뛴다.
 """
 
 import os
 import tempfile
-from datetime import date as date_type
+from datetime import date as date_type, datetime
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database.session import get_db_session
 from app.models.domain import Ink, Pattern, Project, Round, Sample
 from app.services.rdp_import import (
@@ -24,6 +29,18 @@ from app.services.rdp_import import (
 router = APIRouter(prefix="/api/import", tags=["import"])
 
 SQLITE_MAGIC = b"SQLite format 3\x00"
+
+# 경로 미설정 시 시도하는 기본 위치 (개인용 워크플로우 관례)
+DEFAULT_RDP_DB_PATH = "~/MySecondBrain/Areas/NIFCO/RDP-DB/rdp.db"
+
+
+def _resolve_rdp_path(override: str | None = None) -> Path:
+    raw = override or get_settings().RDP_DB_PATH or DEFAULT_RDP_DB_PATH
+    return Path(raw).expanduser()
+
+
+class LocalImportRequest(BaseModel):
+    path: str | None = None
 
 
 def _parse_date(value: str):
@@ -52,6 +69,34 @@ async def _ensure_inks(db: AsyncSession, summary: RdpImportSummary) -> dict:
     return ink_ids
 
 
+@router.get("/rdp/local-status")
+async def rdp_local_status(path: str | None = None):
+    """로컬 rdp.db 파일의 존재 여부와 메타데이터를 반환."""
+    resolved = _resolve_rdp_path(path)
+    exists = resolved.is_file()
+    info = {"path": str(resolved), "exists": exists}
+    if exists:
+        stat = resolved.stat()
+        info["size"] = stat.st_size
+        info["modified_at"] = datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds")
+    return info
+
+
+@router.post("/rdp/local")
+async def import_rdp_local(
+    body: LocalImportRequest | None = None,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """서버(로컬 머신)의 rdp.db를 직접 읽어 가져오기 — 업로드 불필요."""
+    resolved = _resolve_rdp_path(body.path if body else None)
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail=f"파일을 찾을 수 없습니다: {resolved}")
+    content = resolved.read_bytes()
+    if not content.startswith(SQLITE_MAGIC):
+        raise HTTPException(status_code=400, detail=f"SQLite 파일이 아닙니다: {resolved}")
+    return await _import_content(content, db)
+
+
 @router.post("/rdp")
 async def import_rdp(
     file: UploadFile = File(...),
@@ -60,7 +105,10 @@ async def import_rdp(
     content = await file.read()
     if not content.startswith(SQLITE_MAGIC):
         raise HTTPException(status_code=400, detail="SQLite 파일이 아닙니다 (rdp.db를 업로드하세요)")
+    return await _import_content(content, db)
 
+
+async def _import_content(content: bytes, db: AsyncSession):
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:

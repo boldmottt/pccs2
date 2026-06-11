@@ -2,6 +2,7 @@
 
 import { use, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { samplesApi } from '@/lib/api/samples'
 import { patternsApi } from '@/lib/api/patterns'
@@ -14,7 +15,7 @@ import { Input } from '@/components/ui/Input'
 import { ColorSwatch } from '@/components/color/ColorSwatch'
 import { ColorComparison } from '@/components/color/ColorComparison'
 import { SuccessFlagBadge } from '@/components/samples/SuccessFlagBadge'
-import { ArrowLeft, Pencil, X } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, X } from 'lucide-react'
 
 const SUCCESS_FLAG_LABEL: Record<SuccessFlag, string> = {
   SUCCESS: '성공',
@@ -201,7 +202,24 @@ function LayerCard({ layer, inkName }: { layer: Layer; inkName: (inkId: string) 
 
 export default function SampleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const router = useRouter()
+  const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
+
+  const deleteMutation = useMutation({
+    mutationFn: () => samplesApi.remove(id),
+  })
+
+  const handleDelete = (patternId?: string) => {
+    if (window.confirm('이 샘플을 삭제할까요?')) {
+      deleteMutation.mutate(undefined, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['samples'] })
+          router.push(patternId ? `/patterns/${patternId}` : '/samples')
+        },
+      })
+    }
+  }
 
   const sampleQuery = useQuery({
     queryKey: ['samples', 'detail', id],
@@ -279,10 +297,22 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
             )}
             <SuccessFlagBadge flag={sample.success_flag} />
             {!editing && (
-              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                <Pencil className="w-3.5 h-3.5 mr-1" />
-                수정
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  <Pencil className="w-3.5 h-3.5 mr-1" />
+                  수정
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(sample.pattern_id)}
+                  disabled={deleteMutation.isPending}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  삭제
+                </Button>
+              </>
             )}
           </div>
         </div>
