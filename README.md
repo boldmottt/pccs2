@@ -48,6 +48,13 @@ PCCS2/
 
 ## Getting Started
 
+### 원클릭 실행 (One-Click Launch)
+
+저장소 루트의 런처 스크립트를 실행하면 백엔드·프론트엔드가 한 번에 뜨고 브라우저가 자동으로 열립니다. 최초 실행 시 의존성 설치까지 자동 처리합니다 (SQLite 사용, PostgreSQL 불필요).
+
+- **Windows**: `start.bat` 더블클릭 (바탕화면 아이콘: 우클릭 → 보내기 → 바탕 화면에 바로 가기 만들기)
+- **macOS / Linux**: `./start.sh`
+
 ### Prerequisites
 
 - Python 3.11+
