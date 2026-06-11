@@ -135,6 +135,27 @@ class Sample(Base):
     )
 
 
+class BaseMaster(Base):
+    """베이스(소재+도장) 마스터 — 코드만 입력하면 측색값을 불러올 수 있게 등록."""
+
+    __tablename__ = "base_masters"
+
+    base_id = Column(String, primary_key=True)
+    base_code = Column(String, nullable=False, unique=True)
+    base_name = Column(String, nullable=True)
+    material = Column(String, nullable=True)
+    color_sci = Column(JSON, nullable=True)
+    color_sce = Column(JSON, nullable=True)
+    maker = Column(String, nullable=True)
+    memo = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index('idx_base_code', 'base_code'),
+    )
+
+
 class Ink(Base):
     __tablename__ = "inks"
 

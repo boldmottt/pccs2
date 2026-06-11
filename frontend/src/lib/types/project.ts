@@ -165,3 +165,27 @@ export interface InkCreate {
   density?: number
   memo?: string
 }
+
+// ---------- Base Master ----------
+export interface BaseMaster {
+  base_id: string
+  base_code: string
+  base_name?: string | null
+  material?: string | null
+  color_sci?: Lab | null
+  color_sce?: Lab | null
+  maker?: string | null
+  memo?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BaseMasterCreate {
+  base_code: string
+  base_name?: string
+  material?: string
+  color_sci?: Lab
+  color_sce?: Lab
+  maker?: string
+  memo?: string
+}

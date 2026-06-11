@@ -7,6 +7,7 @@ import { samplesApi } from '@/lib/api/samples'
 import { patternsApi } from '@/lib/api/patterns'
 import { roundsApi } from '@/lib/api/rounds'
 import { inksApi } from '@/lib/api/inks'
+import { basesApi } from '@/lib/api/bases'
 import { getErrorMessage } from '@/lib/api/client'
 import type { Ink, InkItem, Layer, SampleCreate } from '@/lib/types/project'
 import type { Lab } from '@/lib/types/color'
@@ -302,6 +303,22 @@ function NewSampleForm() {
 
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null)
 
+  // 베이스 마스터: 코드 선택만으로 베이스 색상·소재 채우기
+  const basesQuery = useQuery({
+    queryKey: ['bases'],
+    queryFn: () => basesApi.list(),
+  })
+  const [loadedBase, setLoadedBase] = useState<string | null>(null)
+
+  const loadFromBase = (baseId: string) => {
+    const base = basesQuery.data?.find(b => b.base_id === baseId)
+    if (!base) return
+    if (base.color_sci) setBaseSci({ ...base.color_sci })
+    if (base.color_sce) setBaseSce({ ...base.color_sce })
+    if (base.material) setBaseMaterial(base.material)
+    setLoadedBase(base.base_code)
+  }
+
   const loadFromSample = (sampleId: string) => {
     const sample = allSamplesQuery.data?.find(s => s.sample_id === sampleId)
     if (!sample) return
@@ -423,6 +440,31 @@ function NewSampleForm() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
             <h2 className="text-lg font-semibold">베이스 색상</h2>
+
+            {(basesQuery.data ?? []).length > 0 && (
+              <div className="max-w-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  베이스 마스터에서 불러오기
+                </label>
+                <Select value="" onValueChange={loadFromBase}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="베이스 코드 선택">
+                      {loadedBase ? `불러옴: ${loadedBase}` : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(basesQuery.data ?? []).map(base => (
+                      <SelectItem key={base.base_id} value={base.base_id}>
+                        {base.base_code}
+                        {base.base_name ? ` — ${base.base_name}` : ''}
+                        {base.material ? ` (${base.material})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <LabInputs label="베이스 측색값 SCI" value={baseSci} onChange={setBaseSci} />
             <LabInputs label="베이스 측색값 SCE" value={baseSce} onChange={setBaseSce} />
             <Input
