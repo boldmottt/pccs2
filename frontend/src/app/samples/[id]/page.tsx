@@ -1,19 +1,150 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState } from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { samplesApi } from '@/lib/api/samples'
 import { patternsApi } from '@/lib/api/patterns'
 import { inksApi } from '@/lib/api/inks'
 import { getErrorMessage } from '@/lib/api/client'
-import type { Layer } from '@/lib/types/project'
+import type { Layer, Sample, SuccessFlag } from '@/lib/types/project'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Input } from '@/components/ui/Input'
 import { ColorSwatch } from '@/components/color/ColorSwatch'
 import { ColorComparison } from '@/components/color/ColorComparison'
 import { SuccessFlagBadge } from '@/components/samples/SuccessFlagBadge'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Pencil, X } from 'lucide-react'
+
+const SUCCESS_FLAG_LABEL: Record<SuccessFlag, string> = {
+  SUCCESS: '성공',
+  FAILED: '실패',
+  PENDING: '대기',
+}
+
+function EditSampleForm({ sample, onClose }: { sample: Sample; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [baseMaterial, setBaseMaterial] = useState(sample.base_material)
+  const [sci, setSci] = useState({ ...sample.base_color_sci })
+  const [sce, setSce] = useState({ ...sample.base_color_sce })
+  const [successFlag, setSuccessFlag] = useState<SuccessFlag>(sample.success_flag)
+  const [successNotes, setSuccessNotes] = useState(sample.success_notes ?? '')
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      samplesApi.update(sample.sample_id, {
+        base_material: baseMaterial.trim() || sample.base_material,
+        base_color_sci: sci,
+        base_color_sce: sce,
+        success_flag: successFlag,
+        success_notes: successNotes.trim() || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['samples'] })
+      onClose()
+    },
+  })
+
+  const labInputs = (
+    label: string,
+    value: { L: number; a: number; b: number },
+    onChange: (v: { L: number; a: number; b: number }) => void,
+  ) => (
+    <div>
+      <p className="text-xs text-gray-500 font-medium mb-2">{label}</p>
+      <div className="grid grid-cols-3 gap-3">
+        {(['L', 'a', 'b'] as const).map(key => (
+          <Input
+            key={key}
+            label={`${key}*`}
+            type="number"
+            step="0.01"
+            value={value[key]}
+            onChange={e => onChange({ ...value, [key]: Number(e.target.value) || 0 })}
+          />
+        ))}
+      </div>
+    </div>
+  )
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>샘플 {sample.sample_number} 수정</CardTitle>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <form
+          onSubmit={e => {
+            e.preventDefault()
+            mutation.mutate()
+          }}
+          className="space-y-4"
+        >
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Input
+              label="베이스 소재"
+              value={baseMaterial}
+              onChange={e => setBaseMaterial(e.target.value)}
+            />
+            <div>
+              <label htmlFor="success_flag" className="block text-sm font-medium text-gray-700 mb-1">
+                결과
+              </label>
+              <select
+                id="success_flag"
+                value={successFlag}
+                onChange={e => setSuccessFlag(e.target.value as SuccessFlag)}
+                className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              >
+                {(Object.keys(SUCCESS_FLAG_LABEL) as SuccessFlag[]).map(value => (
+                  <option key={value} value={value}>
+                    {SUCCESS_FLAG_LABEL[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {labInputs('베이스 색상 SCI (L*, a*, b*)', sci, setSci)}
+          {labInputs('베이스 색상 SCE (L*, a*, b*)', sce, setSce)}
+
+          <div>
+            <label htmlFor="success_notes" className="block text-sm font-medium text-gray-700 mb-1">
+              결과 메모
+            </label>
+            <textarea
+              id="success_notes"
+              rows={2}
+              value={successNotes}
+              onChange={e => setSuccessNotes(e.target.value)}
+              className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent resize-none"
+            />
+          </div>
+
+          {mutation.isError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              샘플 수정에 실패했습니다: {getErrorMessage(mutation.error)}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" type="button" onClick={onClose}>
+              취소
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? '저장 중...' : '저장'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
 
 function LayerCard({ layer, inkName }: { layer: Layer; inkName: (inkId: string) => string }) {
   const totalAmount = layer.ink_items.reduce((sum, item) => sum + item.amount, 0)
@@ -70,6 +201,7 @@ function LayerCard({ layer, inkName }: { layer: Layer; inkName: (inkId: string) 
 
 export default function SampleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const [editing, setEditing] = useState(false)
 
   const sampleQuery = useQuery({
     queryKey: ['samples', 'detail', id],
@@ -131,6 +263,8 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
         패턴 상세
       </Link>
 
+      {editing && <EditSampleForm sample={sample} onClose={() => setEditing(false)} />}
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -144,6 +278,12 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
               </span>
             )}
             <SuccessFlagBadge flag={sample.success_flag} />
+            {!editing && (
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                수정
+              </Button>
+            )}
           </div>
         </div>
 

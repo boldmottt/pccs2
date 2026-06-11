@@ -7,7 +7,7 @@ import { getErrorMessage } from '@/lib/api/client'
 import type { Ink, InkCreate } from '@/lib/types/project'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Plus, X, Beaker, ChevronDown } from 'lucide-react'
+import { Plus, X, Beaker, ChevronDown, Pencil } from 'lucide-react'
 
 const INK_CATEGORIES = [
   { value: 'COLOR', label: '컬러 (COLOR)' },
@@ -30,10 +30,18 @@ function CategoryBadge({ category }: { category: string }) {
   )
 }
 
-function InkCard({ ink }: { ink: Ink }) {
+function InkCard({ ink, onEdit }: { ink: Ink; onEdit: () => void }) {
   const sci = ink.solid_color_sci
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow group relative">
+      <button
+        type="button"
+        onClick={onEdit}
+        title="잉크 수정"
+        className="absolute right-3 bottom-3 p-1.5 rounded-md text-gray-300 hover:text-primary-600 hover:bg-primary-50 group-hover:text-gray-400 transition-colors"
+      >
+        <Pencil className="w-4 h-4" />
+      </button>
       <div className="flex items-start justify-between mb-2">
         <h3 className="font-semibold text-gray-900 truncate pr-2">{ink.ink_name}</h3>
         <CategoryBadge category={ink.ink_category} />
@@ -56,18 +64,38 @@ function InkCard({ ink }: { ink: Ink }) {
   )
 }
 
-function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function InkRegistrationForm({
+  ink,
+  onClose,
+  onSuccess,
+}: {
+  ink?: Ink
+  onClose: () => void
+  onSuccess: () => void
+}) {
   const queryClient = useQueryClient()
 
-  const [form, setForm] = useState<InkCreate>({
-    ink_name: '',
-    ink_category: 'COLOR',
-  })
-  const [showColor, setShowColor] = useState(false)
+  const [form, setForm] = useState<InkCreate>(
+    ink
+      ? {
+          ink_name: ink.ink_name,
+          ink_category: ink.ink_category,
+          manufacturer: ink.manufacturer ?? undefined,
+          solid_color_sci: ink.solid_color_sci ?? undefined,
+          solid_color_sce: ink.solid_color_sce ?? undefined,
+          gloss_GU: ink.gloss_GU ?? undefined,
+          viscosity: ink.viscosity ?? undefined,
+          density: ink.density ?? undefined,
+          memo: ink.memo ?? undefined,
+        }
+      : { ink_name: '', ink_category: 'COLOR' },
+  )
+  const [showColor, setShowColor] = useState(!!ink?.solid_color_sci || !!ink?.solid_color_sce)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const mutation = useMutation({
-    mutationFn: (data: InkCreate) => inksApi.create(data),
+    mutationFn: (data: InkCreate) =>
+      ink ? inksApi.update(ink.ink_id, data) : inksApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inks'] })
       onSuccess()
@@ -101,7 +129,7 @@ function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSu
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-semibold">잉크마스터 등록</h2>
+        <h2 className="text-lg font-semibold">{ink ? `잉크 수정 — ${ink.ink_name}` : '잉크마스터 등록'}</h2>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
           <X className="w-5 h-5" />
         </button>
@@ -285,7 +313,7 @@ function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSu
 
         {mutation.isError && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            잉크 등록에 실패했습니다: {getErrorMessage(mutation.error)}
+            {ink ? '잉크 수정' : '잉크 등록'}에 실패했습니다: {getErrorMessage(mutation.error)}
           </div>
         )}
 
@@ -294,7 +322,7 @@ function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSu
             취소
           </Button>
           <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? '등록 중...' : '잉크마스터 등록'}
+            {mutation.isPending ? '저장 중...' : ink ? '저장' : '잉크마스터 등록'}
           </Button>
         </div>
       </form>
@@ -304,6 +332,7 @@ function InkRegistrationForm({ onClose, onSuccess }: { onClose: () => void; onSu
 
 export default function InksPage() {
   const [showForm, setShowForm] = useState(false)
+  const [editingInk, setEditingInk] = useState<Ink | null>(null)
   const [filterCategory, setFilterCategory] = useState<string>('')
 
   const { data: inks, isLoading, isError, error, refetch } = useQuery({
@@ -331,6 +360,17 @@ export default function InksPage() {
           <InkRegistrationForm
             onClose={() => setShowForm(false)}
             onSuccess={() => setShowForm(false)}
+          />
+        </div>
+      )}
+
+      {editingInk && (
+        <div className="mb-6">
+          <InkRegistrationForm
+            key={editingInk.ink_id}
+            ink={editingInk}
+            onClose={() => setEditingInk(null)}
+            onSuccess={() => setEditingInk(null)}
           />
         </div>
       )}
@@ -369,7 +409,15 @@ export default function InksPage() {
       ) : inks && inks.length > 0 ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {inks.map(ink => (
-            <InkCard key={ink.ink_id} ink={ink} />
+            <InkCard
+              key={ink.ink_id}
+              ink={ink}
+              onEdit={() => {
+                setShowForm(false)
+                setEditingInk(ink)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+            />
           ))}
         </div>
       ) : (

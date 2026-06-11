@@ -11,7 +11,7 @@ import { labToCss } from '@/lib/types/color'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
-import { ArrowLeft, Plus, X } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, X } from 'lucide-react'
 
 const PROJECT_STATUS_LABEL: Record<Project['status'], string> = {
   IN_PROGRESS: '진행 중',
@@ -179,9 +179,117 @@ function NewPatternForm({ projectId, onClose }: { projectId: string; onClose: ()
   )
 }
 
+function EditProjectForm({ project, onClose }: { project: Project; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [projectName, setProjectName] = useState(project.project_name)
+  const [customer, setCustomer] = useState(project.customer ?? '')
+  const [status, setStatus] = useState<Project['status']>(project.status)
+  const [memo, setMemo] = useState(project.memo ?? '')
+  const [nameError, setNameError] = useState<string | undefined>()
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      projectsApi.update(project.project_id, {
+        project_name: projectName.trim(),
+        customer: customer.trim() || undefined,
+        status,
+        memo: memo.trim() || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      onClose()
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!projectName.trim()) {
+      setNameError('프로젝트 이름을 입력하세요')
+      return
+    }
+    mutation.mutate()
+  }
+
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>프로젝트 수정</CardTitle>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Input
+              label="프로젝트 이름 *"
+              value={projectName}
+              onChange={e => {
+                setProjectName(e.target.value)
+                setNameError(undefined)
+              }}
+              error={nameError}
+            />
+            <Input label="고객사" value={customer} onChange={e => setCustomer(e.target.value)} />
+          </div>
+
+          <div>
+            <label htmlFor="project_status" className="block text-sm font-medium text-gray-700 mb-1">
+              상태
+            </label>
+            <select
+              id="project_status"
+              value={status}
+              onChange={e => setStatus(e.target.value as Project['status'])}
+              className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            >
+              {(Object.keys(PROJECT_STATUS_LABEL) as Project['status'][]).map(value => (
+                <option key={value} value={value}>
+                  {PROJECT_STATUS_LABEL[value]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="project_memo" className="block text-sm font-medium text-gray-700 mb-1">
+              메모
+            </label>
+            <textarea
+              id="project_memo"
+              rows={3}
+              value={memo}
+              onChange={e => setMemo(e.target.value)}
+              className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent resize-none"
+            />
+          </div>
+
+          {mutation.isError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              프로젝트 수정에 실패했습니다: {getErrorMessage(mutation.error)}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" type="button" onClick={onClose}>
+              취소
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? '저장 중...' : '저장'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [showPatternForm, setShowPatternForm] = useState(false)
+  const [editingProject, setEditingProject] = useState(false)
 
   const projectQuery = useQuery({
     queryKey: ['projects', id],
@@ -215,24 +323,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </Button>
         </div>
       ) : projectQuery.data ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{projectQuery.data.project_name}</h1>
-              {projectQuery.data.customer && (
-                <p className="text-gray-600 mt-1">고객사: {projectQuery.data.customer}</p>
-              )}
+        editingProject ? (
+          <EditProjectForm project={projectQuery.data} onClose={() => setEditingProject(false)} />
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{projectQuery.data.project_name}</h1>
+                {projectQuery.data.customer && (
+                  <p className="text-gray-600 mt-1">고객사: {projectQuery.data.customer}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-medium border ${PROJECT_STATUS_STYLE[projectQuery.data.status]}`}
+                >
+                  {PROJECT_STATUS_LABEL[projectQuery.data.status]}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setEditingProject(true)}>
+                  <Pencil className="w-3.5 h-3.5 mr-1" />
+                  수정
+                </Button>
+              </div>
             </div>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-medium border ${PROJECT_STATUS_STYLE[projectQuery.data.status]}`}
-            >
-              {PROJECT_STATUS_LABEL[projectQuery.data.status]}
-            </span>
+            {projectQuery.data.memo && (
+              <p className="text-sm text-gray-500 mt-4 whitespace-pre-wrap">{projectQuery.data.memo}</p>
+            )}
           </div>
-          {projectQuery.data.memo && (
-            <p className="text-sm text-gray-500 mt-4 whitespace-pre-wrap">{projectQuery.data.memo}</p>
-          )}
-        </div>
+        )
       ) : null}
 
       <div className="flex items-center justify-between mb-4">

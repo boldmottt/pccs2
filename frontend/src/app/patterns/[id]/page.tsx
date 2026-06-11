@@ -1,6 +1,6 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { patternsApi } from '@/lib/api/patterns'
@@ -11,9 +11,10 @@ import type { Pattern, Round, Sample } from '@/lib/types/project'
 import { labToCss } from '@/lib/types/color'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Input } from '@/components/ui/Input'
 import { ColorTrendChart, type DataPoint } from '@/components/visualization/ColorTrendChart'
 import { SuccessFlagBadge } from '@/components/samples/SuccessFlagBadge'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, X } from 'lucide-react'
 
 const PATTERN_STATUS_LABEL: Record<Pattern['status'], string> = {
   DEVELOPING: '개발 중',
@@ -88,9 +89,151 @@ function RoundCard({ round }: { round: Round }) {
   )
 }
 
+function EditPatternForm({ pattern, onClose }: { pattern: Pattern; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [patternName, setPatternName] = useState(pattern.pattern_name)
+  const [totalLayers, setTotalLayers] = useState(String(pattern.total_print_layers))
+  const [status, setStatus] = useState<Pattern['status']>(pattern.status)
+  const [baseMaterial, setBaseMaterial] = useState(pattern.target_base_material ?? '')
+  const [sci, setSci] = useState(pattern.target_base_color_sci ?? { L: 0, a: 0, b: 0 })
+  const [hasSci] = useState(!!pattern.target_base_color_sci)
+  const [notes, setNotes] = useState(pattern.notes ?? '')
+  const [nameError, setNameError] = useState<string | undefined>()
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      patternsApi.update(pattern.pattern_id, {
+        pattern_name: patternName.trim(),
+        total_print_layers: Math.max(1, Number(totalLayers) || 1),
+        status,
+        target_base_material: baseMaterial.trim() || undefined,
+        ...(hasSci ? { target_base_color_sci: sci } : {}),
+        notes: notes.trim() || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patterns'] })
+      onClose()
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!patternName.trim()) {
+      setNameError('패턴 이름을 입력하세요')
+      return
+    }
+    mutation.mutate()
+  }
+
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>패턴 수정</CardTitle>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid sm:grid-cols-3 gap-4">
+            <Input
+              label="패턴 이름 *"
+              value={patternName}
+              onChange={e => {
+                setPatternName(e.target.value)
+                setNameError(undefined)
+              }}
+              error={nameError}
+            />
+            <Input
+              label="총 인쇄 도수"
+              type="number"
+              min="1"
+              value={totalLayers}
+              onChange={e => setTotalLayers(e.target.value)}
+            />
+            <div>
+              <label htmlFor="pattern_status" className="block text-sm font-medium text-gray-700 mb-1">
+                상태
+              </label>
+              <select
+                id="pattern_status"
+                value={status}
+                onChange={e => setStatus(e.target.value as Pattern['status'])}
+                className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              >
+                {(Object.keys(PATTERN_STATUS_LABEL) as Pattern['status'][]).map(value => (
+                  <option key={value} value={value}>
+                    {PATTERN_STATUS_LABEL[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {hasSci && (
+            <div>
+              <p className="text-xs text-gray-500 font-medium mb-2">목표 색상 SCI (L*, a*, b*)</p>
+              <div className="grid grid-cols-3 gap-3">
+                {(['L', 'a', 'b'] as const).map(key => (
+                  <Input
+                    key={key}
+                    label={`${key}*`}
+                    type="number"
+                    step="0.01"
+                    value={sci[key]}
+                    onChange={e => setSci({ ...sci, [key]: Number(e.target.value) || 0 })}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Input
+            label="목표 베이스 소재"
+            value={baseMaterial}
+            onChange={e => setBaseMaterial(e.target.value)}
+          />
+
+          <div>
+            <label htmlFor="pattern_notes" className="block text-sm font-medium text-gray-700 mb-1">
+              메모
+            </label>
+            <textarea
+              id="pattern_notes"
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent resize-none"
+            />
+          </div>
+
+          {mutation.isError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              패턴 수정에 실패했습니다: {getErrorMessage(mutation.error)}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" type="button" onClick={onClose}>
+              취소
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? '저장 중...' : '저장'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function PatternDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const queryClient = useQueryClient()
+  const [editingPattern, setEditingPattern] = useState(false)
 
   const patternQuery = useQuery({
     queryKey: ['patterns', 'detail', id],
@@ -166,6 +309,9 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
           </Button>
         </div>
       ) : pattern ? (
+        editingPattern ? (
+          <EditPatternForm pattern={pattern} onClose={() => setEditingPattern(false)} />
+        ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
@@ -193,13 +339,20 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
                 )}
               </div>
             </div>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-medium border ${PATTERN_STATUS_STYLE[pattern.status]}`}
-            >
-              {PATTERN_STATUS_LABEL[pattern.status]}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${PATTERN_STATUS_STYLE[pattern.status]}`}
+              >
+                {PATTERN_STATUS_LABEL[pattern.status]}
+              </span>
+              <Button variant="outline" size="sm" onClick={() => setEditingPattern(true)}>
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                수정
+              </Button>
+            </div>
           </div>
         </div>
+        )
       ) : null}
 
       <div className="flex items-center justify-between mb-4">
