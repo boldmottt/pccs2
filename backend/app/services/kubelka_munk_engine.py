@@ -1,8 +1,13 @@
 """Kubelka-Munk 1-stage physical model engine."""
 
+import math
 from typing import Dict, List
 
 from app.services.kubelka_munk import KubelkaMunkCoefficients
+
+# Optical thickness scale: S·t per unit layer thickness. Pad-print ink
+# films are strongly scattering, so a unit layer is close to opaque.
+SCATTERING_PER_THICKNESS = 10.0
 
 
 class KubelkaMunkEngine:
@@ -36,30 +41,33 @@ class KubelkaMunkEngine:
             k_over_s
         )
 
-        # Apply thickness using K-M theory:
-        # R(t) = R_inf * (1 - exp(-2*alpha*t)) / (1 - R_inf^2 * exp(-2*alpha*t))
-        # Simplified: for thin layers, R decreases from R_inf exponentially
-        # For practical purposes: R_effective = R_inf^(1 - exp(-thickness))
-        alpha = 1.0  # Attenuation constant
-        effective_R = layer_R_inf ** (1 - (1 / (1 + thickness * alpha)))
-
         # Get base reflectance
-        base_R = base_color.get("R_inf", 1.0)
+        base_R = min(max(base_color.get("R_inf", 1.0), 0.001), 1.0)
 
-        # Combine layer and base using K-M adding-up formula
-        # When layer is applied over base:
-        # R_comb = R_layer + (T_layer^2 * R_base) / (1 - R_layer * R_base)
-        # But when base is white (R_base ~ 1), layer R dominates
-        # For thin layers on white: R_comb approx layer_R_inf
-        if abs(1 - effective_R * base_R) < 1e-10:
-            # Avoid division by zero - layer dominates
-            combined_R = min(effective_R, base_R)
+        # K-M finite-thickness solution (hyperbolic form) — the reflectance
+        # of a layer with optical thickness X = S·t over a backing R_g:
+        #   a = 1 + K/S,  b = sqrt(a² - 1)
+        #   R = (1 - R_g·(a - b·coth(bX))) / (a + b·coth(bX) - R_g)
+        # This correctly accounts for absorption: a dark layer transmits
+        # little, so the backing barely shows through.
+        a_ks = 1.0 + k_over_s
+        b_ks = math.sqrt(max(a_ks * a_ks - 1.0, 0.0))
+        optical_X = SCATTERING_PER_THICKNESS * thickness
+
+        if optical_X <= 0:
+            combined_R = base_R
+        elif b_ks < 1e-9:
+            # K/S → 0 limit (pure scattering): R = (X(1-Rg) + Rg) / (X(1-Rg) + 1)
+            combined_R = (optical_X * (1 - base_R) + base_R) / (
+                optical_X * (1 - base_R) + 1.0
+            )
         else:
-            R1 = effective_R
-            R2 = base_R
-            T1 = 1 - R1
-            combined_R = R1 + (T1**2 * R2) / (1 - R1 * R2)
-            combined_R = min(max(combined_R, 0.0), 1.0)
+            bX = min(b_ks * optical_X, 50.0)  # coth(50) ≈ 1, avoid overflow
+            coth_bx = 1.0 / math.tanh(bX)
+            combined_R = (1.0 - base_R * (a_ks - b_ks * coth_bx)) / (
+                a_ks + b_ks * coth_bx - base_R
+            )
+        combined_R = min(max(combined_R, 0.0), 1.0)
 
         # Convert reflectance to CIE L*
         # L* = 116 * (Y/Yn)^(1/3) - 16 for Y/Yn > 0.008856
@@ -74,8 +82,15 @@ class KubelkaMunkEngine:
         # Attenuate a and b based on coverage
         # Higher K/S = more absorption = less of base shows through
         coverage = 1 - layer_R_inf
-        a = base_color.get("a", 0.0) * (1 - coverage * 0.5)
-        b = base_color.get("b", 0.0) * (1 - coverage * 0.5)
+        layer_a = layer.get("color_a")
+        layer_b = layer.get("color_b")
+        if layer_a is not None or layer_b is not None:
+            # Layer has its own chroma: mix base -> layer color by coverage
+            a = base_color.get("a", 0.0) * (1 - coverage) + (layer_a or 0.0) * coverage
+            b = base_color.get("b", 0.0) * (1 - coverage) + (layer_b or 0.0) * coverage
+        else:
+            a = base_color.get("a", 0.0) * (1 - coverage * 0.5)
+            b = base_color.get("b", 0.0) * (1 - coverage * 0.5)
 
         return {
             "L": L,
