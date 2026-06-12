@@ -6,11 +6,16 @@ GET  /api/import/rdp/local-status — 로컬 rdp.db 경로/존재 여부 확인.
 
 재가져오기 규칙: 이미 가져온 배합(레이어의 rdp_key)과 내용이 같으면 건너뛰고,
 RDP-DB 쪽에서 값이 바뀐 행(예: 측색값 추후 입력)은 해당 레이어를 업데이트한다.
-같은 패턴·같은 작업일의 1도/2도 행은 한 샘플의 레이어들로 합쳐진다.
+
+1도/2도 합치기: 같은 패턴·같은 작업일에 각 도수가 정확히 1건씩일 때만
+한 샘플의 레이어들로 합친다. 같은 도수가 2건 이상인 날은 어느 1도 위에
+어느 2도를 찍었는지 원본에 정보가 없으므로(시편 ID 부재) 추측하지 않고
+행마다 별도 샘플로 만든다.
 """
 
 import os
 import tempfile
+from collections import Counter, defaultdict
 from datetime import date as date_type, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -227,6 +232,18 @@ async def _import_content(content: bytes, db: AsyncSession):
     created_ids: set[str] = set()
     updated_ids: set[str] = set()
 
+    # 합치기 가능 여부 사전 판정: 같은 날(패턴+동판+작업일)에 어떤 도수든
+    # 2건 이상이면 그날은 합치지 않는다 (어느 1도 위에 어느 2도인지 추측 불가).
+    layer_counts: dict[tuple, Counter] = defaultdict(Counter)
+    for rec in records:
+        layer_counts[(rec.project, rec.pattern_code, rec.plate, rec.date)][
+            rec.layer_number
+        ] += 1
+
+    def _day_is_mergeable(rec) -> bool:
+        counts = layer_counts[(rec.project, rec.pattern_code, rec.plate, rec.date)]
+        return all(c == 1 for c in counts.values())
+
     for rec in records:
         layer = _build_layer(rec, ink_ids)
 
@@ -359,8 +376,9 @@ async def _import_content(content: bytes, db: AsyncSession):
                 summary.rounds_created += 1
             rounds[rkey] = round_
 
-        # Sample: 같은 라운드(패턴+작업일)의 RDP 샘플 중 이 도수가 비어 있는
-        # 샘플에 레이어를 합친다 (1도+2도 = 시편 하나). 없으면 새 샘플.
+        # Sample: 그날 각 도수가 1건씩뿐이면 같은 라운드의 RDP 샘플 중
+        # 이 도수가 비어 있는 샘플에 레이어를 합친다 (1도+2도 = 시편 하나).
+        # 모호한 날(같은 도수 2건 이상)이거나 합칠 샘플이 없으면 새 샘플.
         rsamples = round_samples.get(round_.round_id)
         if rsamples is None:
             rsamples = list(
@@ -374,17 +392,19 @@ async def _import_content(content: bytes, db: AsyncSession):
             )
             round_samples[round_.round_id] = rsamples
 
-        sample = next(
-            (
-                s
-                for s in rsamples
-                if all(
-                    ly.get("layer_number") != rec.layer_number
-                    for ly in (s.layers or [])
-                )
-            ),
-            None,
-        )
+        sample = None
+        if _day_is_mergeable(rec):
+            sample = next(
+                (
+                    s
+                    for s in rsamples
+                    if all(
+                        ly.get("layer_number") != rec.layer_number
+                        for ly in (s.layers or [])
+                    )
+                ),
+                None,
+            )
         if sample is None:
             max_sample_no = await db.scalar(
                 select(Sample.sample_number)

@@ -192,6 +192,31 @@ def test_same_day_layers_merge_into_one_sample(api_client, rdp_db_file):
     assert "RDP:NX5a/WB7/26_027/2도/AH" in s1["success_notes"]
 
 
+def test_ambiguous_day_rows_stay_separate(api_client, tmp_path):
+    """같은 날 같은 도수가 2건 이상이면 추측 합치기를 하지 않고 행마다 별도 샘플."""
+    path = tmp_path / "ambiguous.db"
+    conn = sqlite3.connect(path)
+    conn.execute(RDP_SCHEMA)
+    # 같은 날: 1도 배합 2건(25, 28) + 2도 1건(AH) → 어느 1도 위 2도인지 알 수 없음
+    for layer, batch in [("1도", "25"), ("1도", "28"), ("2도", "AH")]:
+        conn.execute(
+            """INSERT INTO rdp_mixes
+               (date, project, pattern_code, plate, layer, batch_no, is_base,
+                wh, ye, result, thinner_pct, hardener_pct)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            ("2026-05-20", "NX5a", "WB7", "26_027", layer, batch, 0,
+             30.0, 10.0, "✅", 30.0, 20.0),
+        )
+    conn.commit()
+    conn.close()
+
+    body = _upload(api_client, path).json()
+    assert body["total_rows"] == 3
+    assert body["samples_created"] == 3       # 합치지 않음
+    samples = api_client.get("/api/samples/").json()
+    assert all(len(s["layers"]) == 1 for s in samples)
+
+
 def test_reimport_skips_existing(api_client, rdp_db_file):
     first = _upload(api_client, rdp_db_file).json()
     assert first["samples_created"] == 3
