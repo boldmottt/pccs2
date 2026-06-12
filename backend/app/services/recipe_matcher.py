@@ -15,6 +15,7 @@ from app.services.color_math import (
     lab_to_rgb_reflectance,
     rgb_reflectance_to_lab,
 )
+from app.services.kubelka_munk import KubelkaMunkCoefficients
 
 # Categories that contribute color when blended
 _BLENDABLE_CATEGORIES = {"COLOR", "TRANSPARENT", "EFFECT"}
@@ -92,14 +93,17 @@ def _predict_blend_color(
     rgb = []
     for channel in range(3):
         ks_mix = sum(ks[channel] * ratio for ks, ratio in zip(ks_list, ratios))
-        # R = 1 + K/S - sqrt((K/S)^2 + 2·K/S)
-        r = 1.0 + ks_mix - (ks_mix * ks_mix + 2.0 * ks_mix) ** 0.5
-        rgb.append(max(0.001, min(1.0, r)))
+        r = KubelkaMunkCoefficients.calculate_reflectance_infinite(ks_mix)
+        rgb.append(max(_MIN_CHANNEL_R, min(1.0, r)))
     return rgb_reflectance_to_lab(tuple(rgb))
 
 
 def _confidence_from_delta_e(delta_e: float) -> float:
-    """Map delta E to a 0-1 confidence score (dE 0 -> 1.0, dE >= 20 -> 0)."""
+    """Map ΔE2000 to a 0-1 confidence score (dE 0 -> 1.0, dE >= 20 -> 0).
+
+    참고: ΔE2000은 큰 색차에서 ΔE76보다 압축된 값을 내므로 이 스케일은
+    ΔE76 시절보다 관대한 편이다. 실측 데이터가 쌓이면 재캘리브레이션 대상.
+    """
     return max(0.0, min(1.0, 1.0 - delta_e / 20.0))
 
 
@@ -241,26 +245,32 @@ def recommend_recipes(
     pool = _build_candidate_pool(candidates, target_color)
     ks_by_id = {ink["ink_id"]: _ink_ks_channels(ink) for ink in pool}
 
-    # 1단계: 거친 그리드 전수 탐색 — 조합 키별 최고만 보관
-    best_per_combo: Dict[tuple, Dict] = {}
-    for size in range(1, min(max_components, len(pool)) + 1):
+    # 1단계: 거친 그리드 전수 탐색 — 조합별 최적 비율만 보관
+    # (combinations()는 부분집합을 한 번씩만 내놓으므로 dict 중복제거 불필요)
+    grids = {
+        size: list(_ratio_grids(size))
+        for size in range(1, min(max_components, len(pool)) + 1)
+    }
+    coarse_results: List[Dict] = []
+    for size, grid in grids.items():
         for combo in combinations(pool, size):
-            key = tuple(sorted(ink["ink_id"] for ink in combo))
             ks_list = [ks_by_id[ink["ink_id"]] for ink in combo]
-            for ratios in _ratio_grids(size):
+            best_ratios = None
+            best_delta_e = float("inf")
+            for ratios in grid:
                 predicted = _predict_blend_color(ks_list, ratios)
                 delta_e = calculate_delta_e_2000(predicted, target_color)
-                current = best_per_combo.get(key)
-                if current is None or delta_e < current["delta_e"]:
-                    best_per_combo[key] = {
-                        "combo": combo,
-                        "ratios": ratios,
-                        "predicted": predicted,
-                        "delta_e": delta_e,
-                    }
+                if delta_e < best_delta_e:
+                    best_ratios = ratios
+                    best_delta_e = delta_e
+            coarse_results.append({
+                "combo": combo,
+                "ratios": best_ratios,
+                "delta_e": best_delta_e,
+            })
 
     # 2단계: 상위 조합만 쌍별 질량 이동으로 미세조정
-    coarse_top = sorted(best_per_combo.values(), key=lambda r: r["delta_e"])[:_REFINE_TOP_N]
+    coarse_top = sorted(coarse_results, key=lambda r: r["delta_e"])[:_REFINE_TOP_N]
     refined: List[Dict] = []
     for entry in coarse_top:
         ks_list = [ks_by_id[ink["ink_id"]] for ink in entry["combo"]]

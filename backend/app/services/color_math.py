@@ -24,10 +24,8 @@ def lab_to_reflectance(color: Dict[str, float]) -> float:
     adding-up formula numerically stable.
     """
     L = max(0.0, min(100.0, color.get("L", 100.0)))
-    if L > 8.0:
-        y = ((L + 16.0) / 116.0) ** 3
-    else:
-        y = L / 903.3
+    # CIE 역L* 함수는 파일 하단의 _lab_f_inv(정확 상수 24389/27)와 공유
+    y = _lab_f_inv((L + 16.0) / 116.0)
     return max(0.001, min(1.0, y))
 
 
