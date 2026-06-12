@@ -24,15 +24,39 @@ class CopyLayerRequest(BaseModel):
     target_layer_number: int
 
 
-class LayerInput(BaseModel):
+class LayerFields(BaseModel):
+    """레이어 공통 필드. 입력/응답이 같은 필드를 공유해야
+    RDP 메타데이터(rdp_key 등)가 샘플 수정 시 유실되지 않는다."""
+
     layer_number: int
     ink_items: List[InkItem]
     thinner_pct: Optional[float] = None
+    thinner_g: Optional[float] = None
     hardener_pct: Optional[float] = None
+    hardener_g: Optional[float] = None
+    matting_agent_pct: Optional[float] = None
+    matting_agent_g: Optional[float] = None
+    total_g: Optional[float] = None
+    coating_maker: Optional[str] = None
+    coating_code: Optional[str] = None
+    coating_lot: Optional[str] = None
+    pad_name: Optional[str] = None
+    pad_hardness: Optional[str] = None
+    source_file: Optional[str] = None
+    rdp_key: Optional[str] = None
+    batch_no: Optional[str] = None
+    is_base: Optional[bool] = None
+    result: Optional[str] = None
+    change_summary: Optional[str] = None
+    target_color_sci: Optional[Dict[str, float]] = None
     print_color_sci: Optional[Dict[str, float]] = None
     print_color_sce: Optional[Dict[str, float]] = None
     delta_E_from_target: Optional[float] = None
     note: Optional[str] = None
+
+
+class LayerInput(LayerFields):
+    pass
 
 
 class SampleCreate(BaseModel):
@@ -57,33 +81,8 @@ class SampleUpdate(BaseModel):
     success_notes: Optional[str] = None
 
 
-class LayerResponse(BaseModel):
+class LayerResponse(LayerFields):
     model_config = ConfigDict(from_attributes=True)
-
-    layer_number: int
-    ink_items: List[InkItem]
-    thinner_pct: Optional[float] = None
-    thinner_g: Optional[float] = None
-    hardener_pct: Optional[float] = None
-    hardener_g: Optional[float] = None
-    matting_agent_pct: Optional[float] = None
-    matting_agent_g: Optional[float] = None
-    total_g: Optional[float] = None
-    coating_maker: Optional[str] = None
-    coating_code: Optional[str] = None
-    coating_lot: Optional[str] = None
-    pad_name: Optional[str] = None
-    pad_hardness: Optional[str] = None
-    source_file: Optional[str] = None
-    rdp_key: Optional[str] = None
-    batch_no: Optional[str] = None
-    is_base: Optional[bool] = None
-    result: Optional[str] = None
-    target_color_sci: Optional[Dict[str, float]] = None
-    print_color_sci: Optional[Dict[str, float]] = None
-    print_color_sce: Optional[Dict[str, float]] = None
-    delta_E_from_target: Optional[float] = None
-    note: Optional[str] = None
 
 
 class SampleResponse(BaseModel):

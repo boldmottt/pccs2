@@ -89,6 +89,7 @@ def _build_layer(rec: RdpMixRecord, ink_ids: dict) -> dict:
     # 선택적 필드: None이 아닌 것만 포함해 JSON을 간결하게 유지
     optionals = {
         "target_color_sci": rec.target_color,
+        "change_summary": rec.note,
         "thinner_g": rec.thinner_g,
         "hardener_g": rec.hardener_g,
         "matting_agent_pct": rec.matting_agent_pct,
