@@ -77,7 +77,7 @@ def _build_layer(rec: RdpMixRecord, ink_ids: dict) -> dict:
         "thinner_pct": rec.thinner_pct,
         "hardener_pct": rec.hardener_pct,
         "print_color_sci": rec.measured_color,
-        "print_color_sce": None,
+        "print_color_sce": rec.measured_color_sce,
         "delta_E_from_target": rec.delta_e,
         "note": " | ".join(note_parts),
         # 행 단위 메타: rdp_key는 중복/업데이트 판정 키
@@ -89,6 +89,7 @@ def _build_layer(rec: RdpMixRecord, ink_ids: dict) -> dict:
     # 선택적 필드: None이 아닌 것만 포함해 JSON을 간결하게 유지
     optionals = {
         "target_color_sci": rec.target_color,
+        "target_color_sce": rec.target_color_sce,
         "change_summary": rec.note,
         "thinner_g": rec.thinner_g,
         "hardener_g": rec.hardener_g,
@@ -304,13 +305,17 @@ async def _import_content(content: bytes, db: AsyncSession):
                     pattern_name=pattern_name,
                     total_print_layers=2,
                     target_base_color_sci=rec.target_color,
+                    target_base_color_sce=rec.target_color_sce,
                     notes="RDP-DB 가져오기로 자동 생성",
                 )
                 db.add(pattern)
                 await db.flush()
                 summary.patterns_created += 1
-            elif rec.target_color and not pattern.target_base_color_sci:
-                pattern.target_base_color_sci = rec.target_color
+            else:
+                if rec.target_color and not pattern.target_base_color_sci:
+                    pattern.target_base_color_sci = rec.target_color
+                if rec.target_color_sce and not pattern.target_base_color_sce:
+                    pattern.target_base_color_sce = rec.target_color_sce
             patterns[pkey] = pattern
 
         # Plate (동판 마스터): 차종 > 패턴 > 동판 계층 유지

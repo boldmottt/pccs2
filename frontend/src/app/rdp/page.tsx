@@ -55,6 +55,7 @@ interface UpsertResult {
   unchanged: number
   errors?: string[]
   skipped_layers?: number
+  columns_added?: string[]
 }
 
 const num = (v: number | null) => (v === null || v === undefined ? '' : v)
@@ -71,6 +72,11 @@ function ResultBanner({ title, result }: { title: string; result: UpsertResult }
         {result.unchanged}
         {result.skipped_layers ? ` / RDP 출신 아님(건너뜀) ${result.skipped_layers}` : ''}
       </p>
+      {result.columns_added && result.columns_added.length > 0 && (
+        <p className="text-emerald-700 mt-1">
+          rdp.db에 새 컬럼 추가됨: {result.columns_added.join(', ')}
+        </p>
+      )}
       {result.errors && result.errors.length > 0 && (
         <ul className="mt-2 text-red-600 list-disc pl-5">
           {result.errors.slice(0, 10).map(e => (

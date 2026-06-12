@@ -48,13 +48,19 @@ RDP_EXCEL_COLUMNS: list[tuple[str, str, str]] = [
     ("change_summary", "str", "변경 요약 (예: YE+3g)"),
     ("notes", "str", "비고"),
     ("source_file", "str", "출처 파일"),
-    ("target_L", "float", "목표색 L*"),
-    ("target_a", "float", "목표색 a*"),
-    ("target_b", "float", "목표색 b*"),
-    ("measured_L", "float", "측정색 L*"),
-    ("measured_a", "float", "측정색 a*"),
-    ("measured_b", "float", "측정색 b*"),
-    ("delta_e", "float", "ΔE (목표 대비)"),
+    ("target_L", "float", "목표색 L* (SCI)"),
+    ("target_a", "float", "목표색 a* (SCI)"),
+    ("target_b", "float", "목표색 b* (SCI)"),
+    ("target_sce_L", "float", "목표색 L* (SCE)"),
+    ("target_sce_a", "float", "목표색 a* (SCE)"),
+    ("target_sce_b", "float", "목표색 b* (SCE)"),
+    ("measured_L", "float", "측정색 L* (SCI)"),
+    ("measured_a", "float", "측정색 a* (SCI)"),
+    ("measured_b", "float", "측정색 b* (SCI)"),
+    ("measured_sce_L", "float", "측정색 L* (SCE)"),
+    ("measured_sce_a", "float", "측정색 a* (SCE)"),
+    ("measured_sce_b", "float", "측정색 b* (SCE)"),
+    ("delta_e", "float", "ΔE (목표 대비, SCI)"),
     ("result_code", "str", "결과 코드"),
 ]
 
@@ -101,11 +107,29 @@ CREATE TABLE IF NOT EXISTS rdp_mixes (
     change_summary TEXT,
     source_file TEXT,
     target_L REAL, target_a REAL, target_b REAL,
+    target_sce_L REAL, target_sce_a REAL, target_sce_b REAL,
     measured_L REAL, measured_a REAL, measured_b REAL,
+    measured_sce_L REAL, measured_sce_a REAL, measured_sce_b REAL,
     delta_e REAL, result_code TEXT,
     UNIQUE(project, pattern_code, plate, layer, batch_no)
 )
 """
+
+# 컬럼 타입 → SQLite 타입 (기존 rdp.db에 누락 컬럼을 ALTER로 추가할 때 사용)
+_SQLITE_TYPES = {"str": "TEXT", "int": "INTEGER", "float": "REAL"}
+
+
+def _ensure_columns(conn: sqlite3.Connection) -> list[str]:
+    """기존 rdp_mixes에 없는 컬럼(예: SCE 측색값)을 ALTER로 보충한다."""
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(rdp_mixes)")}
+    added = []
+    for name, kind, _desc in RDP_EXCEL_COLUMNS:
+        if name not in existing:
+            conn.execute(
+                f"ALTER TABLE rdp_mixes ADD COLUMN {name} {_SQLITE_TYPES[kind]}"
+            )
+            added.append(name)
+    return added
 
 EXAMPLE_ROW = {
     "date": "2026-05-11",
@@ -276,6 +300,7 @@ def upsert_rdp_rows(
     conn.row_factory = sqlite3.Row
     try:
         conn.execute(RDP_MIXES_SCHEMA)
+        added_columns = _ensure_columns(conn)
         data_columns = [c for c in COLUMN_NAMES if c not in KEY_COLUMNS and c != "date"]
         inserted = 0
         updated = 0
@@ -315,7 +340,12 @@ def upsert_rdp_rows(
             )
             updated += 1
         conn.commit()
-        return {"inserted": inserted, "updated": updated, "unchanged": unchanged}
+        return {
+            "inserted": inserted,
+            "updated": updated,
+            "unchanged": unchanged,
+            "columns_added": added_columns,
+        }
     finally:
         conn.close()
 
@@ -378,16 +408,17 @@ def layer_to_rdp_row(
         col = INK_NAME_TO_COLUMN.get(name or "")
         if col:
             row[col] = item.get("amount")
-    target = layer.get("target_color_sci")
-    if target:
-        row["target_L"], row["target_a"], row["target_b"] = (
-            target.get("L"), target.get("a"), target.get("b"),
-        )
-    measured = layer.get("print_color_sci")
-    if measured:
-        row["measured_L"], row["measured_a"], row["measured_b"] = (
-            measured.get("L"), measured.get("a"), measured.get("b"),
-        )
+    color_columns = [
+        ("target_color_sci", "target"),
+        ("target_color_sce", "target_sce"),
+        ("print_color_sci", "measured"),
+        ("print_color_sce", "measured_sce"),
+    ]
+    for layer_field, prefix in color_columns:
+        color = layer.get(layer_field)
+        if color:
+            for axis in ("L", "a", "b"):
+                row[f"{prefix}_{axis}"] = color.get(axis)
     if emboss:
         row["emboss_type"], row["emboss_depth_um"] = emboss
     return row

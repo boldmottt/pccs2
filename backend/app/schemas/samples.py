@@ -49,6 +49,7 @@ class LayerFields(BaseModel):
     result: Optional[str] = None
     change_summary: Optional[str] = None
     target_color_sci: Optional[Dict[str, float]] = None
+    target_color_sce: Optional[Dict[str, float]] = None
     print_color_sci: Optional[Dict[str, float]] = None
     print_color_sce: Optional[Dict[str, float]] = None
     delta_E_from_target: Optional[float] = None

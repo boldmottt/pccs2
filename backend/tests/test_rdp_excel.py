@@ -157,7 +157,9 @@ def test_export_pccs2_roundtrip(api_client, rdp_db_file):
     assert base["wh"] == 35.8
     assert base["result"] == "✅"
     assert base["target_L"] == 73.0
+    assert base["target_sce_L"] == 72.0
     assert base["measured_L"] == 73.4
+    assert base["measured_sce_L"] == 72.5
     assert base["delta_e"] == 0.55
     assert base["emboss_type"] == "H-type"
     assert base["emboss_depth_um"] == 180
@@ -193,6 +195,39 @@ def test_sync_back_writes_pccs2_edits_to_rdp_db(api_client, rdp_db_file):
     ).fetchone()[0]
     conn.close()
     assert ye == 27.5
+
+
+def test_upload_adds_missing_columns_to_old_db(api_client, tmp_path):
+    """SCE 컬럼이 없는 구버전 rdp.db에 업로드하면 컬럼이 자동 추가된다."""
+    db_path = tmp_path / "old.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """CREATE TABLE rdp_mixes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL, project TEXT NOT NULL,
+            pattern_code TEXT NOT NULL, plate TEXT NOT NULL,
+            layer TEXT NOT NULL, batch_no TEXT NOT NULL,
+            mt REAL, wh REAL, ye REAL, rd REAL,
+            target_L REAL, target_a REAL, target_b REAL,
+            UNIQUE(project, pattern_code, plate, layer, batch_no)
+        )"""
+    )
+    conn.commit()
+    conn.close()
+
+    row = dict(BASIC_ROW, measured_sce_L=72.5, measured_sce_a=-1.8, measured_sce_b=4.8)
+    body = api_client.post(
+        "/api/rdp/excel/upload",
+        params={"path": str(db_path)},
+        files={"file": ("bulk.xlsx", _xlsx_bytes([row]), "application/octet-stream")},
+    ).json()
+    assert body["inserted"] == 1
+    assert "measured_sce_L" in body["columns_added"]
+
+    conn = sqlite3.connect(db_path)
+    sce_l = conn.execute("SELECT measured_sce_L FROM rdp_mixes").fetchone()[0]
+    conn.close()
+    assert sce_l == 72.5
 
 
 def test_sync_back_missing_file_404(api_client, tmp_path):

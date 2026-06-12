@@ -41,7 +41,9 @@ CREATE TABLE rdp_mixes (
     change_summary TEXT,
     source_file TEXT,
     target_L REAL, target_a REAL, target_b REAL,
+    target_sce_L REAL, target_sce_a REAL, target_sce_b REAL,
     measured_L REAL, measured_a REAL, measured_b REAL,
+    measured_sce_L REAL, measured_sce_a REAL, measured_sce_b REAL,
     delta_e REAL, result_code TEXT,
     UNIQUE(project, pattern_code, plate, layer, batch_no)
 )
@@ -109,6 +111,13 @@ def rdp_db_file(tmp_path):
              coating_maker, coating_code, coating_lot, pad_name, pad_hardness, source_file,
              tl, ta, tb, ml, ma, mb, de),
         )
+    # 기준배합 행에만 SCE 측색값 부여 (확장 컬럼 동작 확인용)
+    conn.execute(
+        """UPDATE rdp_mixes SET
+           target_sce_L=72.0, target_sce_a=-2.0, target_sce_b=5.0,
+           measured_sce_L=72.5, measured_sce_a=-1.8, measured_sce_b=4.8
+           WHERE batch_no='25'"""
+    )
     conn.commit()
     conn.close()
     return path
@@ -161,7 +170,9 @@ def test_import_maps_colors_and_result(api_client, rdp_db_file):
     assert base["final_delta_e"] == 0.55
     assert layer["layer_number"] == 1
     assert layer["print_color_sci"] == {"L": 73.4, "a": -1.9, "b": 5.0}
+    assert layer["print_color_sce"] == {"L": 72.5, "a": -1.8, "b": 4.8}
     assert layer["target_color_sci"] == {"L": 73.0, "a": -2.1, "b": 5.2}
+    assert layer["target_color_sce"] == {"L": 72.0, "a": -2.0, "b": 5.0}
     assert layer["thinner_pct"] == 30.0
     assert layer["batch_no"] == "25"
     assert layer["is_base"] is True

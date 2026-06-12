@@ -50,8 +50,8 @@ class RdpMixRecord:
     ink_amounts: dict  # ink name -> grams (0 제외)
     thinner_pct: Optional[float]
     hardener_pct: Optional[float]
-    target_color: Optional[dict]  # {"L", "a", "b"} or None
-    measured_color: Optional[dict]
+    target_color: Optional[dict]  # {"L", "a", "b"} or None — SCI
+    measured_color: Optional[dict]  # SCI
     delta_e: Optional[float]
     success_flag: str
     note: Optional[str] = None
@@ -74,6 +74,9 @@ class RdpMixRecord:
     pad_hardness: Optional[str] = None
     # 출처 파일
     source_file: Optional[str] = None
+    # SCE 측색값 (rdp_mixes 확장 컬럼 — 없으면 None)
+    target_color_sce: Optional[dict] = None
+    measured_color_sce: Optional[dict] = None
 
 
 @dataclass
@@ -176,6 +179,8 @@ def read_rdp_mixes(db_path: str) -> list[RdpMixRecord]:
                     total_g=_float("total_g"),
                     target_color=_lab_or_none(row, "target"),
                     measured_color=_lab_or_none(row, "measured"),
+                    target_color_sce=_lab_or_none(row, "target_sce"),
+                    measured_color_sce=_lab_or_none(row, "measured_sce"),
                     delta_e=_float("delta_e"),
                     success_flag=RESULT_FLAG_MAP.get(result, "PENDING"),
                     note=_str("change_summary"),
