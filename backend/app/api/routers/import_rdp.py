@@ -199,11 +199,19 @@ async def _import_content(content: bytes, db: AsyncSession):
                         plate_id=str(uuid4()),
                         pattern_id=pattern.pattern_id,
                         plate_code=rec.plate,
+                        emboss_type=rec.emboss_type,
+                        emboss_depth_um=rec.emboss_depth_um,
                         memo="RDP-DB 가져오기로 자동 생성",
                     )
                     db.add(plate)
                     await db.flush()
                     summary.plates_created += 1
+                else:
+                    # 기존 동판에 엠보스 정보가 없으면 채워넣기
+                    if plate.emboss_type is None and rec.emboss_type:
+                        plate.emboss_type = rec.emboss_type
+                    if plate.emboss_depth_um is None and rec.emboss_depth_um is not None:
+                        plate.emboss_depth_um = rec.emboss_depth_um
                 plates[plkey] = plate
 
         # Round (패턴 + 작업일 단위)
@@ -247,10 +255,16 @@ async def _import_content(content: bytes, db: AsyncSession):
             .order_by(Sample.sample_number.desc())
             .limit(1)
         )
-        layer = {
+        note_parts = [f"배합 {rec.batch_no}"]
+        if rec.is_base:
+            note_parts.append("[기준배합]")
+        if rec.note:
+            note_parts.append(rec.note)
+
+        layer: dict = {
             "layer_number": rec.layer_number,
             "ink_items": [
-                {"ink_id": ink_ids[name], "amount": amount}
+                {"ink_id": ink_ids[name], "ink_name": name, "amount": amount}
                 for name, amount in rec.ink_amounts.items()
             ],
             "thinner_pct": rec.thinner_pct,
@@ -258,10 +272,23 @@ async def _import_content(content: bytes, db: AsyncSession):
             "print_color_sci": rec.measured_color,
             "print_color_sce": None,
             "delta_E_from_target": rec.delta_e,
-            "note": f"배합 {rec.batch_no}"
-            + (" [기준배합]" if rec.is_base else "")
-            + (f" | {rec.note}" if rec.note else ""),
+            "note": " | ".join(note_parts),
         }
+        # 선택적 필드: None이 아닌 것만 포함해 JSON을 간결하게 유지
+        optionals = {
+            "thinner_g": rec.thinner_g,
+            "hardener_g": rec.hardener_g,
+            "matting_agent_pct": rec.matting_agent_pct,
+            "matting_agent_g": rec.matting_agent_g,
+            "total_g": rec.total_g,
+            "coating_maker": rec.coating_maker,
+            "coating_code": rec.coating_code,
+            "coating_lot": rec.coating_lot,
+            "pad_name": rec.pad_name,
+            "pad_hardness": rec.pad_hardness,
+            "source_file": rec.source_file,
+        }
+        layer.update({k: v for k, v in optionals.items() if v is not None})
         db.add(
             Sample(
                 sample_id=str(uuid4()),

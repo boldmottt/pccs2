@@ -13,6 +13,7 @@ class SampleSuccessFlagEnum(str, Enum):
 class InkItem(BaseModel):
     ink_id: str
     amount: float = Field(..., ge=0.0)
+    ink_name: Optional[str] = None
 
 
 class CopyLayerRequest(BaseModel):
@@ -62,7 +63,18 @@ class LayerResponse(BaseModel):
     layer_number: int
     ink_items: List[InkItem]
     thinner_pct: Optional[float] = None
+    thinner_g: Optional[float] = None
     hardener_pct: Optional[float] = None
+    hardener_g: Optional[float] = None
+    matting_agent_pct: Optional[float] = None
+    matting_agent_g: Optional[float] = None
+    total_g: Optional[float] = None
+    coating_maker: Optional[str] = None
+    coating_code: Optional[str] = None
+    coating_lot: Optional[str] = None
+    pad_name: Optional[str] = None
+    pad_hardness: Optional[str] = None
+    source_file: Optional[str] = None
     print_color_sci: Optional[Dict[str, float]] = None
     print_color_sce: Optional[Dict[str, float]] = None
     delta_E_from_target: Optional[float] = None

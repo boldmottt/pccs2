@@ -52,6 +52,24 @@ class RdpMixRecord:
     success_flag: str
     note: Optional[str] = None
     notes: Optional[str] = None
+    # 동판 엠보스 정보 → Plate 모델에 저장
+    emboss_type: Optional[str] = None
+    emboss_depth_um: Optional[int] = None
+    # 첨가제 실측량
+    matting_agent_pct: Optional[float] = None
+    matting_agent_g: Optional[float] = None
+    thinner_g: Optional[float] = None
+    hardener_g: Optional[float] = None
+    total_g: Optional[float] = None
+    # 코팅 정보
+    coating_maker: Optional[str] = None
+    coating_code: Optional[str] = None
+    coating_lot: Optional[str] = None
+    # 패드 정보
+    pad_name: Optional[str] = None
+    pad_hardness: Optional[str] = None
+    # 출처 파일
+    source_file: Optional[str] = None
 
 
 @dataclass
@@ -118,6 +136,18 @@ def read_rdp_mixes(db_path: str) -> list[RdpMixRecord]:
             batch_no = str(row["batch_no"]) if row["batch_no"] is not None else ""
             result = (row["result"] or "").strip() if "result" in keys else ""
 
+            def _float(col: str) -> Optional[float]:
+                return float(row[col]) if col in keys and row[col] is not None else None
+
+            def _int(col: str) -> Optional[int]:
+                v = row[col] if col in keys else None
+                return int(v) if v is not None else None
+
+            def _str(col: str) -> Optional[str]:
+                v = row[col] if col in keys else None
+                s = str(v).strip() if v is not None else None
+                return s or None
+
             records.append(
                 RdpMixRecord(
                     rdp_key=make_rdp_key(
@@ -132,14 +162,27 @@ def read_rdp_mixes(db_path: str) -> list[RdpMixRecord]:
                     batch_no=batch_no,
                     is_base=bool(row["is_base"]) if "is_base" in keys else False,
                     ink_amounts=ink_amounts,
-                    thinner_pct=float(row["thinner_pct"]) if "thinner_pct" in keys and row["thinner_pct"] is not None else None,
-                    hardener_pct=float(row["hardener_pct"]) if "hardener_pct" in keys and row["hardener_pct"] is not None else None,
+                    thinner_pct=_float("thinner_pct"),
+                    thinner_g=_float("thinner_g"),
+                    hardener_pct=_float("hardener_pct"),
+                    hardener_g=_float("hardener_g"),
+                    matting_agent_pct=_float("matting_agent_pct"),
+                    matting_agent_g=_float("matting_agent_g"),
+                    total_g=_float("total_g"),
                     target_color=_lab_or_none(row, "target"),
                     measured_color=_lab_or_none(row, "measured"),
-                    delta_e=float(row["delta_e"]) if "delta_e" in keys and row["delta_e"] is not None else None,
+                    delta_e=_float("delta_e"),
                     success_flag=RESULT_FLAG_MAP.get(result, "PENDING"),
-                    note=row["change_summary"] if "change_summary" in keys else None,
-                    notes=row["notes"] if "notes" in keys else None,
+                    note=_str("change_summary"),
+                    notes=_str("notes"),
+                    emboss_type=_str("emboss_type"),
+                    emboss_depth_um=_int("emboss_depth_um"),
+                    coating_maker=_str("coating_maker"),
+                    coating_code=_str("coating_code"),
+                    coating_lot=_str("coating_lot"),
+                    pad_name=_str("pad_name"),
+                    pad_hardness=_str("pad_hardness"),
+                    source_file=_str("source_file"),
                 )
             )
         return records

@@ -29,6 +29,13 @@ CREATE TABLE rdp_mixes (
     hardener_pct REAL DEFAULT 20,
     hardener_g REAL,
     total_g REAL,
+    emboss_type TEXT,
+    emboss_depth_um INTEGER,
+    coating_maker TEXT,
+    coating_code TEXT,
+    coating_lot TEXT,
+    pad_name TEXT,
+    pad_hardness TEXT,
     result TEXT,
     notes TEXT,
     change_summary TEXT,
@@ -49,31 +56,57 @@ def rdp_db_file(tmp_path):
     conn.execute(RDP_SCHEMA)
     rows = [
         # NX5a / WB7 / 26_027 — 1도 기준배합 + 변경배합, 2도 1건
+        # (date, project, pattern, plate, layer, batch, is_base,
+        #  mt, bk, wh, ye, rd, result, change,
+        #  thinner_pct, mat_pct, mat_g, thinner_g, hardener_g, total_g,
+        #  emboss_type, emboss_depth_um, coating_maker, coating_code, coating_lot, pad_name, pad_hardness,
+        #  source_file, tl, ta, tb, ml, ma, mb, de)
         ("2026-05-11", "NX5a", "WB7", "26_027", "1도", "25", 1,
          2.3, 0.0, 35.8, 25.0, 6.3, "✅", None,
-         30.0, 73.0, -2.1, 5.2, 73.4, -1.9, 5.0, 0.55),
+         30.0, 2.0, 1.5, 18.0, 12.0, 92.5,
+         "H-type", 180, "ACME", "CT-01", "L2026-05", "P-10", "70A",
+         "worklog_2026-05.xlsx",
+         73.0, -2.1, 5.2, 73.4, -1.9, 5.0, 0.55),
         ("2026-05-12", "NX5a", "WB7", "26_027", "1도", "28", 0,
          2.3, 0.0, 35.4, 28.0, 6.3, "⚠️", "YE+3g",
-         30.0, 73.0, -2.1, 5.2, 72.1, -2.8, 6.9, 2.31),
+         30.0, 2.0, None, None, None, None,
+         "H-type", 180, None, None, None, None, None,
+         None,
+         73.0, -2.1, 5.2, 72.1, -2.8, 6.9, 2.31),
         ("2026-05-12", "NX5a", "WB7", "26_027", "2도", "AH", 0,
          2.3, 0.0, 35.2, 23.5, 5.9, "❌", "WH-3g",
-         30.0, None, None, None, None, None, None, None),
+         30.0, 2.0, None, None, None, None,
+         None, None, None, None, None, None, None,
+         None,
+         None, None, None, None, None, None, None),
         # MQ5 — 다른 프로젝트
         ("2026-05-11", "MQ5", "M-60507-F1", "26_040", "1도", "라", 1,
          0.5, 1.4, 19.0, 12.8, 0.0, "✅", None,
-         30.0, None, None, None, None, None, None, None),
+         30.0, 2.0, None, None, None, None,
+         None, None, None, None, None, None, None,
+         None,
+         None, None, None, None, None, None, None),
     ]
     for (date, project, pattern, plate, layer, batch, is_base,
          mt, bk, wh, ye, rd, result, change,
-         thinner, tl, ta, tb, ml, ma, mb, de) in rows:
+         thinner_pct, mat_pct, mat_g, thinner_g, hardener_g, total_g,
+         emboss_type, emboss_depth_um, coating_maker, coating_code, coating_lot, pad_name, pad_hardness,
+         source_file, tl, ta, tb, ml, ma, mb, de) in rows:
         conn.execute(
             """INSERT INTO rdp_mixes
                (date, project, pattern_code, plate, layer, batch_no, is_base,
-                mt, bk, wh, ye, rd, result, change_summary, thinner_pct, hardener_pct,
+                mt, bk, wh, ye, rd, result, change_summary,
+                thinner_pct, hardener_pct, matting_agent_pct, matting_agent_g,
+                thinner_g, hardener_g, total_g,
+                emboss_type, emboss_depth_um,
+                coating_maker, coating_code, coating_lot, pad_name, pad_hardness, source_file,
                 target_L, target_a, target_b, measured_L, measured_a, measured_b, delta_e)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (date, project, pattern, plate, layer, batch, is_base,
-             mt, bk, wh, ye, rd, result, change, thinner, 20.0,
+             mt, bk, wh, ye, rd, result, change,
+             thinner_pct, 20.0, mat_pct, mat_g, thinner_g, hardener_g, total_g,
+             emboss_type, emboss_depth_um,
+             coating_maker, coating_code, coating_lot, pad_name, pad_hardness, source_file,
              tl, ta, tb, ml, ma, mb, de),
         )
     conn.commit()
@@ -138,6 +171,42 @@ def test_reimport_skips_existing(api_client, rdp_db_file):
     assert second["samples_skipped"] == 4
     assert second["projects_created"] == 0
     assert second["inks_created"] == 0
+
+
+def test_extended_fields_stored(api_client, rdp_db_file):
+    """emboss, coating, pad, matting, total_g 데이터가 올바르게 저장되는지 확인."""
+    _upload(api_client, rdp_db_file)
+
+    # Plate 엔드포인트로 동판 확인
+    projects = api_client.get("/api/projects/").json()
+    nx5a = next(p for p in projects if p["project_name"] == "NX5a")
+    patterns = api_client.get("/api/patterns/", params={"project_id": nx5a["project_id"]}).json()
+    pattern = patterns[0]
+    plates = api_client.get("/api/plates/", params={"pattern_id": pattern["pattern_id"]}).json()
+    assert len(plates) == 1
+    plate = plates[0]
+    assert plate["emboss_type"] == "H-type"
+    assert plate["emboss_depth_um"] == 180
+
+    # Layer JSON 안에 coating / pad / matting / total_g 확인
+    samples = api_client.get("/api/samples/").json()
+    by_key = {s["success_notes"]: s for s in samples}
+    base = by_key["RDP:NX5a/WB7/26_027/1도/25"]
+    layer = base["layers"][0]
+    assert layer["coating_maker"] == "ACME"
+    assert layer["coating_code"] == "CT-01"
+    assert layer["coating_lot"] == "L2026-05"
+    assert layer["pad_name"] == "P-10"
+    assert layer["pad_hardness"] == "70A"
+    assert layer["matting_agent_pct"] == 2.0
+    assert layer["matting_agent_g"] == 1.5
+    assert layer["thinner_g"] == 18.0
+    assert layer["total_g"] == 92.5
+    assert layer["source_file"] == "worklog_2026-05.xlsx"
+    # ink_items에 ink_name 포함 확인
+    ink_names = {i["ink_name"] for i in layer["ink_items"]}
+    assert "MT" in ink_names
+    assert "WH" in ink_names
 
 
 def test_import_rejects_non_sqlite(api_client):
