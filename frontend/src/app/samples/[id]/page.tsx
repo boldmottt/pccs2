@@ -16,7 +16,7 @@ import { ColorSwatch } from '@/components/color/ColorSwatch'
 import { ColorComparison } from '@/components/color/ColorComparison'
 import { SuccessFlagBadge } from '@/components/samples/SuccessFlagBadge'
 import { InkDonutChart, type InkData } from '@/components/visualization/InkDonutChart'
-import { labToCss } from '@/lib/types/color'
+import { labToCss, mixInksLab, type Lab } from '@/lib/types/color'
 import { ArrowLeft, Pencil, Trash2, X } from 'lucide-react'
 
 const SUCCESS_FLAG_LABEL: Record<SuccessFlag, string> = {
@@ -153,10 +153,12 @@ function LayerCard({
   layer,
   inkName,
   inkColor,
+  inkLab,
 }: {
   layer: Layer
   inkName: (inkId: string) => string
   inkColor: (inkId: string) => string
+  inkLab: (inkId: string) => Lab | null
 }) {
   const totalAmount = layer.ink_items.reduce((sum, item) => sum + item.amount, 0)
 
@@ -166,6 +168,11 @@ function LayerCard({
     amount: item.amount,
     color: inkColor(item.ink_id),
   }))
+
+  // 중앙: 저장된 예측 믹스색이 있으면 그것을, 없으면 현재 잉크 Lab으로 계산
+  const predictedMix =
+    layer.predicted_color_sci ??
+    mixInksLab(layer.ink_items.map(it => ({ amount: it.amount, lab: inkLab(it.ink_id) })))
 
   return (
     <Card>
@@ -179,7 +186,13 @@ function LayerCard({
         <div className="flex items-center gap-5">
           {totalAmount > 0 && (
             <div className="shrink-0">
-              <InkDonutChart inks={donutInks} totalAmount={totalAmount} size="sm" showLabels={false} />
+              <InkDonutChart
+                inks={donutInks}
+                totalAmount={totalAmount}
+                size="sm"
+                showLabels={false}
+                center={{ predicted: predictedMix, actual: layer.print_color_sci }}
+              />
             </div>
           )}
           <div className="flex-1 space-y-2">
@@ -271,6 +284,9 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
 
   const inkName = (inkId: string) =>
     inksQuery.data?.find(i => i.ink_id === inkId)?.ink_name || inkId
+
+  const inkLab = (inkId: string): Lab | null =>
+    inksQuery.data?.find(i => i.ink_id === inkId)?.solid_color_sci ?? null
 
   // 측색값이 있으면 실제 잉크 색, 없으면 잉크 ID 기반 고정 팔레트 색
   const inkColor = (inkId: string) => {
@@ -414,7 +430,13 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
       )}
       <div className="space-y-4">
         {sample.layers.map(layer => (
-          <LayerCard key={layer.layer_number} layer={layer} inkName={inkName} inkColor={inkColor} />
+          <LayerCard
+            key={layer.layer_number}
+            layer={layer}
+            inkName={inkName}
+            inkColor={inkColor}
+            inkLab={inkLab}
+          />
         ))}
       </div>
     </div>

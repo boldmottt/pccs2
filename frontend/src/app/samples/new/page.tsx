@@ -11,7 +11,7 @@ import { basesApi } from '@/lib/api/bases'
 import { platesApi } from '@/lib/api/plates'
 import { getErrorMessage } from '@/lib/api/client'
 import type { Ink, InkItem, Layer, SampleCreate } from '@/lib/types/project'
-import type { Lab } from '@/lib/types/color'
+import { deltaE76, mixInksLab, type Lab } from '@/lib/types/color'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select'
@@ -409,11 +409,29 @@ function NewSampleForm() {
       setFormError('모든 레이어에 잉크를 1개 이상 추가하세요.')
       return
     }
+    // 저장 시점의 예측 믹스색과 실측 대비 ΔE를 레이어에 기록
+    // → 예측↔실측 오차 데이터로 축적해 추천 엔진 보정에 활용
+    const enrichedLayers = layers.map(layer => {
+      const predicted = mixInksLab(
+        layer.ink_items.map(it => ({
+          amount: it.amount,
+          lab: inks.find(i => i.ink_id === it.ink_id)?.solid_color_sci ?? null,
+        })),
+      )
+      return {
+        ...layer,
+        predicted_color_sci: predicted ?? undefined,
+        prediction_error_delta_e:
+          predicted && layer.print_color_sci
+            ? deltaE76(predicted, layer.print_color_sci)
+            : undefined,
+      }
+    })
     createMutation.mutate({
       base_color_sci: baseSci,
       base_color_sce: baseSce,
       base_material: baseMaterial.trim(),
-      layers,
+      layers: enrichedLayers,
     })
   }
 

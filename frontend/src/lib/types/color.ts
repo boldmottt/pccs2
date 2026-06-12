@@ -47,3 +47,24 @@ export function labToCss(color: Lab): string {
   const rgb = convertLabToRgb(color.L, color.a, color.b)
   return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`
 }
+
+/**
+ * 배합 잉크들의 예상 믹스 색 (표시용 근사).
+ * Lab값이 등록된 잉크만 질량 가중 평균에 참여하고, 하나도 없으면 null.
+ * 물리 혼색(K-M) 모델이 아니라 미리보기용 근사값이다 — 정식 예측은 예측 API 사용.
+ */
+export function mixInksLab(items: Array<{ amount: number; lab?: Lab | null }>): Lab | null {
+  let total = 0
+  let L = 0
+  let a = 0
+  let b = 0
+  for (const item of items) {
+    if (!item.lab || item.amount <= 0) continue
+    total += item.amount
+    L += item.lab.L * item.amount
+    a += item.lab.a * item.amount
+    b += item.lab.b * item.amount
+  }
+  if (total <= 0) return null
+  return { L: L / total, a: a / total, b: b / total }
+}

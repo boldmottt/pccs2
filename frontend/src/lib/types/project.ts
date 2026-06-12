@@ -93,6 +93,18 @@ export interface Layer {
   print_color_sce?: Lab | null
   delta_E_from_target?: number | null
   note?: string | null
+  /** 저장 시점의 예측 믹스색 (잉크 Lab 가중평균) — 추천 엔진 정교화용 데이터 */
+  predicted_color_sci?: Lab | null
+  /** 예측 믹스색 ↔ 실측(print_color_sci) ΔE — 추천 엔진 정교화용 데이터 */
+  prediction_error_delta_e?: number | null
+  /** RDP 가져오기 메타 (수정 시 보존) */
+  rdp_key?: string | null
+  batch_no?: string | null
+  is_base?: boolean | null
+  result?: string | null
+  change_summary?: string | null
+  target_color_sci?: Lab | null
+  target_color_sce?: Lab | null
 }
 
 export interface Sample {

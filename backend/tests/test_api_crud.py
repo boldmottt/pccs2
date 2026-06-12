@@ -185,6 +185,20 @@ class TestSamplesCRUD:
         assert len(sample["layers"]) == 1
         assert sample["layers"][0]["ink_items"][0]["ink_id"] == "white"
 
+    def test_layer_keeps_prediction_error_data(self, api_client):
+        """예측 믹스색과 예측↔실측 ΔE가 레이어에 저장·반환된다 (엔진 보정용 데이터)."""
+        round_ = self._setup_round(api_client)
+        sample = _create_sample(api_client, round_["round_id"], layers=[{
+            "layer_number": 1,
+            "ink_items": [{"ink_id": "white", "amount": 80.0}],
+            "print_color_sci": {"L": 71.0, "a": -2.0, "b": 5.5},
+            "predicted_color_sci": {"L": 73.0, "a": -2.1, "b": 5.2},
+            "prediction_error_delta_e": 2.04,
+        }])
+        layer = sample["layers"][0]
+        assert layer["predicted_color_sci"] == {"L": 73.0, "a": -2.1, "b": 5.2}
+        assert layer["prediction_error_delta_e"] == 2.04
+
     def test_create_on_missing_round(self, api_client):
         response = api_client.post("/api/samples/round/missing", json={
             "base_color_sci": {"L": 90, "a": 0, "b": 0},

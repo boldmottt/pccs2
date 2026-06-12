@@ -50,6 +50,10 @@ class LayerFields(BaseModel):
     change_summary: Optional[str] = None
     target_color_sci: Optional[Dict[str, float]] = None
     target_color_sce: Optional[Dict[str, float]] = None
+    # 저장 시점의 예측 믹스색과 실측 대비 ΔE — 예측↔실측 오차 데이터로
+    # 축적해 추천/예측 엔진 보정(ML)에 활용한다
+    predicted_color_sci: Optional[Dict[str, float]] = None
+    prediction_error_delta_e: Optional[float] = None
     print_color_sci: Optional[Dict[str, float]] = None
     print_color_sce: Optional[Dict[str, float]] = None
     delta_E_from_target: Optional[float] = None
