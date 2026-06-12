@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-# rdp_mixes 잉크 컬럼 → PCCS2 마스터 잉크 (이름, 카테고리)
+# rdp_mixes 기본 잉크 컬럼 → PCCS2 마스터 잉크 (이름, 카테고리)
 RDP_INK_COLUMNS = {
     "mt": ("MT", "COLOR"),
     "bk": ("BK", "COLOR"),
@@ -27,6 +27,31 @@ RDP_INK_COLUMNS = {
     "cl": ("CL", "TRANSPARENT"),
     "ye_d": ("YE_D", "COLOR"),
 }
+
+# rdp_mixes에서 잉크가 아닌 것으로 정해진 컬럼들.
+# 이 집합에 없는 컬럼은 모두 사용자 추가 잉크 컬럼으로 간주한다
+# (컬럼명 → 잉크 이름은 대문자 변환: gr → GR).
+RDP_NON_INK_COLUMNS = frozenset(
+    {
+        "id", "date", "project", "pattern_code", "plate", "layer", "batch_no",
+        "is_base", "matting_agent_pct", "matting_agent_g",
+        "thinner_pct", "thinner_g", "hardener_pct", "hardener_g", "total_g",
+        "emboss_type", "emboss_depth_um",
+        "coating_maker", "coating_code", "coating_lot",
+        "pad_name", "pad_hardness",
+        "result", "notes", "change_summary", "source_file",
+        "target_L", "target_a", "target_b",
+        "target_sce_L", "target_sce_a", "target_sce_b",
+        "measured_L", "measured_a", "measured_b",
+        "measured_sce_L", "measured_sce_a", "measured_sce_b",
+        "delta_e", "result_code",
+    }
+)
+
+
+def ink_columns_in(keys) -> list[str]:
+    """행/테이블 컬럼 목록에서 잉크 컬럼만 추출 (기본 7종 + 사용자 추가)."""
+    return [k for k in keys if k not in RDP_NON_INK_COLUMNS]
 
 RESULT_FLAG_MAP = {
     "✅": "SUCCESS",
@@ -135,10 +160,16 @@ def read_rdp_mixes(db_path: str) -> list[RdpMixRecord]:
             keys = row.keys()
 
             ink_amounts = {}
-            for col, (ink_name, _category) in RDP_INK_COLUMNS.items():
-                amount = row[col] if col in keys else None
-                if amount:
-                    ink_amounts[ink_name] = float(amount)
+            for col in ink_columns_in(keys):
+                amount = row[col]
+                if not amount:
+                    continue
+                try:
+                    value = float(amount)
+                except (TypeError, ValueError):
+                    continue  # 숫자가 아닌 미지의 컬럼은 잉크가 아님
+                name = RDP_INK_COLUMNS[col][0] if col in RDP_INK_COLUMNS else col.upper()
+                ink_amounts[name] = value
 
             layer_raw = row["layer"] if row["layer"] is not None else "1도"
             batch_no = str(row["batch_no"]) if row["batch_no"] is not None else ""

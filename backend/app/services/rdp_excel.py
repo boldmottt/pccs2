@@ -6,6 +6,7 @@
 """
 
 import io
+import re
 import sqlite3
 from datetime import date, datetime
 from typing import Optional
@@ -119,11 +120,13 @@ CREATE TABLE IF NOT EXISTS rdp_mixes (
 _SQLITE_TYPES = {"str": "TEXT", "int": "INTEGER", "float": "REAL"}
 
 
-def _ensure_columns(conn: sqlite3.Connection) -> list[str]:
-    """기존 rdp_mixes에 없는 컬럼(예: SCE 측색값)을 ALTER로 보충한다."""
+def _ensure_columns(conn: sqlite3.Connection, extra_inks: list[str] = ()) -> list[str]:
+    """기존 rdp_mixes에 없는 컬럼(SCE 측색값, 사용자 추가 잉크)을 ALTER로 보충."""
     existing = {r[1] for r in conn.execute("PRAGMA table_info(rdp_mixes)")}
+    needed = [(name, kind) for name, kind, _desc in RDP_EXCEL_COLUMNS]
+    needed += [(ink, "float") for ink in extra_inks]
     added = []
-    for name, kind, _desc in RDP_EXCEL_COLUMNS:
+    for name, kind in needed:
         if name not in existing:
             conn.execute(
                 f"ALTER TABLE rdp_mixes ADD COLUMN {name} {_SQLITE_TYPES[kind]}"
@@ -156,37 +159,69 @@ EXAMPLE_ROW = {
 }
 
 
-def _write_sheet(ws, rows: list[dict]) -> None:
-    ws.append(COLUMN_NAMES)
-    ws.freeze_panes = "A2"
-    for row in rows:
-        ws.append([row.get(col) for col in COLUMN_NAMES])
+_INK_COLUMN_RE = re.compile(r"[a-z][a-z0-9_]{0,30}")
 
 
-def _add_description_sheet(wb: Workbook) -> None:
+def is_ink_column(name: str) -> bool:
+    """정해진 컬럼이 아니면서 컬럼명 규칙에 맞으면 사용자 추가 잉크 컬럼."""
+    return (
+        name not in COLUMN_NAMES
+        and name != "id"
+        and _INK_COLUMN_RE.fullmatch(name) is not None
+    )
+
+
+def columns_with_extras(extra_inks: list[str]) -> list[str]:
+    """기본 컬럼 + 사용자 추가 잉크 컬럼(ye_d 뒤에 삽입)."""
+    cols = list(COLUMN_NAMES)
+    insert_at = cols.index("ye_d") + 1
+    for ink in sorted(set(extra_inks)):
+        if ink not in cols:
+            cols.insert(insert_at, ink)
+            insert_at += 1
+    return cols
+
+
+def _add_description_sheet(wb: Workbook, extra_inks: list[str] = ()) -> None:
     ws = wb.create_sheet("컬럼 설명")
     ws.append(["컬럼", "설명"])
-    for name, _kind, desc in RDP_EXCEL_COLUMNS:
-        ws.append([name, desc])
+    descriptions = dict((name, desc) for name, _kind, desc in RDP_EXCEL_COLUMNS)
+    for name in columns_with_extras(list(extra_inks)):
+        ws.append([name, descriptions.get(name, f"{name.upper()} 잉크 (g) — 사용자 추가")])
     ws.column_dimensions["A"].width = 20
     ws.column_dimensions["B"].width = 50
 
 
-def build_workbook(rows: list[dict], sheet_title: str = "rdp_mixes") -> bytes:
-    """행 목록을 xlsx 바이트로 변환 (컬럼 설명 시트 포함)."""
+def build_workbook(
+    rows: list[dict],
+    sheet_title: str = "rdp_mixes",
+    extra_inks: list[str] = (),
+) -> bytes:
+    """행 목록을 xlsx 바이트로 변환 (컬럼 설명 시트 포함).
+
+    extra_inks를 주지 않으면 행 dict에 들어 있는 추가 잉크 컬럼을 자동 감지한다.
+    """
+    extras = set(extra_inks)
+    for row in rows:
+        extras.update(k for k in row if is_ink_column(k))
+    columns = columns_with_extras(sorted(extras))
+
     wb = Workbook()
     ws = wb.active
     ws.title = sheet_title
-    _write_sheet(ws, rows)
-    _add_description_sheet(wb)
+    ws.append(columns)
+    ws.freeze_panes = "A2"
+    for row in rows:
+        ws.append([row.get(col) for col in columns])
+    _add_description_sheet(wb, sorted(extras))
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
 
 
-def build_template() -> bytes:
-    """빈 입력 양식 (예시 1행 포함)."""
-    return build_workbook([EXAMPLE_ROW])
+def build_template(extra_inks: list[str] = ()) -> bytes:
+    """빈 입력 양식 (예시 1행 포함). extra_inks로 사용자 잉크 컬럼 추가."""
+    return build_workbook([EXAMPLE_ROW], extra_inks=extra_inks)
 
 
 def _cell_to_value(name: str, kind: str, value):
@@ -224,17 +259,24 @@ def parse_workbook(content: bytes) -> tuple[list[dict], list[str]]:
         return [], ["빈 시트입니다"]
 
     col_index = {}
+    extra_inks: list[str] = []
     for i, h in enumerate(header):
         if h is None:
             continue
         h = str(h).strip()
         if h in COLUMN_NAMES:
             col_index[h] = i
+        elif is_ink_column(h):
+            # 양식에 없는 소문자 컬럼 = 사용자 추가 잉크 (g, 숫자)
+            col_index[h] = i
+            extra_inks.append(h)
     missing = [c for c in REQUIRED_COLUMNS if c not in col_index]
     if missing:
         return [], [f"필수 컬럼 누락: {', '.join(missing)} — 양식을 다운로드해 사용하세요"]
 
     kinds = {name: kind for name, kind, _ in RDP_EXCEL_COLUMNS}
+    kinds.update({ink: "float" for ink in extra_inks})
+    all_columns = COLUMN_NAMES + extra_inks
     rows: list[dict] = []
     errors: list[str] = []
     for line_no, raw in enumerate(rows_iter, start=2):
@@ -242,7 +284,7 @@ def parse_workbook(content: bytes) -> tuple[list[dict], list[str]]:
             continue
         row: dict = {}
         row_errors = []
-        for name in COLUMN_NAMES:
+        for name in all_columns:
             idx = col_index.get(name)
             value = raw[idx] if idx is not None and idx < len(raw) else None
             try:
@@ -276,10 +318,12 @@ def read_rdp_rows(db_path: str, project: Optional[str] = None) -> list[dict]:
             sql += " WHERE project = ?"
             params = (project,)
         sql += " ORDER BY date, id"
+        table_cols = [r[1] for r in conn.execute("PRAGMA table_info(rdp_mixes)")]
+        columns = columns_with_extras([c for c in table_cols if is_ink_column(c)])
         result = []
         for row in conn.execute(sql, params):
             keys = row.keys()
-            result.append({col: (row[col] if col in keys else None) for col in COLUMN_NAMES})
+            result.append({col: (row[col] if col in keys else None) for col in columns})
         return result
     finally:
         conn.close()
@@ -296,12 +340,15 @@ def upsert_rdp_rows(
     PCCS2가 모르는 값으로 원본을 비우지 않도록).
     False(엑셀 업로드)면 빈 셀 = NULL 로 그대로 덮어쓴다.
     """
+    extra_inks = sorted({k for row in rows for k in row if is_ink_column(k)})
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute(RDP_MIXES_SCHEMA)
-        added_columns = _ensure_columns(conn)
-        data_columns = [c for c in COLUMN_NAMES if c not in KEY_COLUMNS and c != "date"]
+        added_columns = _ensure_columns(conn, extra_inks)
+        data_columns = [
+            c for c in COLUMN_NAMES + extra_inks if c not in KEY_COLUMNS and c != "date"
+        ]
         inserted = 0
         updated = 0
         unchanged = 0
@@ -406,6 +453,8 @@ def layer_to_rdp_row(
     for item in layer.get("ink_items") or []:
         name = item.get("ink_name") or ink_name_by_id.get(item.get("ink_id"))
         col = INK_NAME_TO_COLUMN.get(name or "")
+        if not col and name and is_ink_column(name.lower()):
+            col = name.lower()  # 사용자 추가 잉크 → 컬럼명 = 소문자 이름
         if col:
             row[col] = item.get("amount")
     color_columns = [

@@ -131,16 +131,21 @@ def _recompute_sample(sample: Sample) -> None:
     sample.success_notes = "\n".join(keys)
 
 
-async def _ensure_inks(db: AsyncSession, summary: RdpImportSummary) -> dict:
-    """RDP 기본 잉크(MT/BK/WH/YE/RD/CL/YE_D)를 마스터에 보장하고 name→ink_id 맵 반환."""
+async def _ensure_inks(
+    db: AsyncSession, summary: RdpImportSummary, extra_names: set[str] = frozenset()
+) -> dict:
+    """RDP 기본 잉크(MT/BK/WH/YE/RD/CL/YE_D)와 데이터에 등장한 사용자 추가
+    잉크를 마스터에 보장하고 name→ink_id 맵을 반환."""
+    categories = {name: cat for _col, (name, cat) in RDP_INK_COLUMNS.items()}
+    names = list(categories) + sorted(n for n in extra_names if n not in categories)
     ink_ids: dict[str, str] = {}
-    for _col, (name, category) in RDP_INK_COLUMNS.items():
+    for name in names:
         ink = await db.scalar(select(Ink).where(Ink.ink_name == name).limit(1))
         if ink is None:
             ink = Ink(
                 ink_id=str(uuid4()),
                 ink_name=name,
-                ink_category=category,
+                ink_category=categories.get(name, "COLOR"),
                 memo="RDP-DB 가져오기로 자동 등록",
             )
             db.add(ink)
@@ -204,7 +209,8 @@ async def _import_content(content: bytes, db: AsyncSession):
             os.unlink(tmp_path)
 
     summary = RdpImportSummary()
-    ink_ids = await _ensure_inks(db, summary)
+    found_ink_names = {name for rec in records for name in rec.ink_amounts}
+    ink_ids = await _ensure_inks(db, summary, found_ink_names)
 
     # 캐시: 같은 요청 내 find-or-create 반복 조회 방지
     projects: dict[str, Project] = {}

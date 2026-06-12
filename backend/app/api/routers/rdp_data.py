@@ -20,9 +20,11 @@ from app.api.routers.import_rdp import _resolve_rdp_path
 from app.database.session import get_db_session
 from app.models.domain import Ink, Plate, Round, Sample
 from app.services.rdp_excel import (
+    INK_NAME_TO_COLUMN,
     XLSX_MEDIA_TYPE,
     build_template,
     build_workbook,
+    is_ink_column,
     layer_to_rdp_row,
     parse_workbook,
     read_rdp_rows,
@@ -63,9 +65,21 @@ async def list_rdp_rows(path: str | None = None, project: str | None = None):
 
 
 @router.get("/excel/template")
-async def download_template():
-    """빈 입력 양식 (예시 1행 + 컬럼 설명 시트)."""
-    return _xlsx_response(build_template(), "rdp_template.xlsx")
+async def download_template(db: AsyncSession = Depends(get_db_session)):
+    """빈 입력 양식 (예시 1행 + 컬럼 설명 시트).
+
+    PCCS2 잉크 마스터에 등록된 원료 잉크(배합 잉크 제외)가
+    잉크 컬럼으로 자동 포함된다 — 예: GR 등록 → gr 컬럼.
+    """
+    inks = (
+        await db.scalars(select(Ink).where(Ink.is_blend_ink.is_not(True)))
+    ).all()
+    extra_inks = [
+        ink.ink_name.lower()
+        for ink in inks
+        if ink.ink_name not in INK_NAME_TO_COLUMN and is_ink_column(ink.ink_name.lower())
+    ]
+    return _xlsx_response(build_template(extra_inks=extra_inks), "rdp_template.xlsx")
 
 
 @router.get("/excel/export")

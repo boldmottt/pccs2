@@ -230,6 +230,67 @@ def test_upload_adds_missing_columns_to_old_db(api_client, tmp_path):
     assert sce_l == 72.5
 
 
+def test_custom_ink_full_flow(api_client, tmp_path):
+    """PCCS2에 잉크 등록 → 양식에 컬럼 생성 → 업로드 → 가져오기 → 역반영."""
+    # 1) PCCS2 잉크 마스터에 GR(녹색) 등록
+    resp = api_client.post("/api/inks/", json={"ink_name": "GR", "ink_category": "COLOR"})
+    assert resp.status_code == 201
+
+    # 2) 양식 다운로드 → gr 컬럼이 ye_d 뒤에 추가됨
+    resp = api_client.get("/api/rdp/excel/template")
+    wb = load_workbook(io.BytesIO(resp.content))
+    header = [c.value for c in next(wb.worksheets[0].iter_rows(max_row=1))]
+    assert "gr" in header
+    assert header.index("gr") == header.index("ye_d") + 1
+
+    # 3) gr 값을 채워 업로드 → rdp.db에 gr 컬럼 자동 추가
+    db_path = tmp_path / "rdp.db"
+    row = dict(BASIC_ROW, gr=4.2)
+    body = api_client.post(
+        "/api/rdp/excel/upload",
+        params={"path": str(db_path)},
+        files={"file": ("bulk.xlsx", _xlsx_bytes_with_columns([row]), "application/octet-stream")},
+    ).json()
+    assert body["inserted"] == 1
+    assert "gr" in body["columns_added"]
+
+    # 4) 가져오기 → GR 잉크가 레이어 ink_items에 포함
+    resp = api_client.post("/api/import/rdp/local", json={"path": str(db_path)})
+    assert resp.json()["samples_created"] == 1
+    samples = api_client.get("/api/samples/").json()
+    _s, layer = _find_layer_any(samples)
+    gr_item = next(i for i in layer["ink_items"] if i["ink_name"] == "GR")
+    assert gr_item["amount"] == 4.2
+
+    # 5) 역반영 → gr 컬럼으로 되돌아감
+    api_client.post("/api/rdp/sync-back", json={"path": str(db_path)})
+    conn = sqlite3.connect(db_path)
+    gr = conn.execute("SELECT gr FROM rdp_mixes").fetchone()[0]
+    conn.close()
+    assert gr == 4.2
+
+
+def _xlsx_bytes_with_columns(rows_of_dicts):
+    """행 dict들의 모든 키를 헤더로 사용해 xlsx 생성 (추가 잉크 컬럼 포함)."""
+    columns = list(dict.fromkeys(k for row in rows_of_dicts for k in row))
+    wb = Workbook()
+    ws = wb.active
+    ws.append(columns)
+    for row in rows_of_dicts:
+        ws.append([row.get(c) for c in columns])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _find_layer_any(samples):
+    for s in samples:
+        for ly in s["layers"] or []:
+            if ly.get("rdp_key"):
+                return s, ly
+    raise AssertionError("no RDP layer found")
+
+
 def test_sync_back_missing_file_404(api_client, tmp_path):
     resp = api_client.post("/api/rdp/sync-back", json={"path": str(tmp_path / "no.db")})
     assert resp.status_code == 404
