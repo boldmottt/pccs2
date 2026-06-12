@@ -500,3 +500,77 @@ def test_base_master_duplicate_code_conflict(api_client):
     other = api_client.post("/api/bases/", json={"base_code": "DUP-2"}).json()
     conflict = api_client.put(f"/api/bases/{other['base_id']}", json={"base_code": "DUP-1"})
     assert conflict.status_code == 409
+
+
+class TestRecipeMatcherPhysics:
+    """3-채널 K-M 혼합 모델의 정성 거동 검증 (감산혼합)."""
+
+    @staticmethod
+    def _blend(inks, ratios):
+        from app.services.recipe_matcher import _ink_ks_channels, _predict_blend_color
+        ks_list = [_ink_ks_channels(i) for i in inks]
+        return _predict_blend_color(ks_list, ratios)
+
+    def test_yellow_plus_blue_makes_green(self):
+        """노랑+파랑 → 초록 (Lab 평균으로는 불가능한 감산혼합 거동)."""
+        yellow = {"ink_id": "ye", "solid_color_sci": {"L": 85.0, "a": -5.0, "b": 80.0}}
+        blue = {"ink_id": "bl", "solid_color_sci": {"L": 30.0, "a": 10.0, "b": -55.0}}
+        mixed = self._blend([yellow, blue], (0.5, 0.5))
+        # 초록 방향: a*가 두 원색 모두보다 음으로 이동
+        assert mixed["a"] < -5.0
+
+    def test_white_letdown_is_nonlinear(self):
+        """진한 잉크에 흰색 소량은 명도를 거의 못 올린다 (white let-down)."""
+        dark = {"ink_id": "bk", "solid_color_sci": {"L": 10.0, "a": 0.0, "b": 0.0}}
+        white = {"ink_id": "wh", "solid_color_sci": {"L": 95.0, "a": 0.0, "b": 0.0}}
+        ten_pct = self._blend([dark, white], (0.9, 0.1))
+        half = self._blend([dark, white], (0.5, 0.5))
+        # 선형이라면 10% 흰색에 L이 (95-10)*0.1=8.5 올라야 하지만 훨씬 작아야 함
+        assert ten_pct["L"] - 10.0 < 5.0
+        # 50%에서도 산술평균(52.5)보다 한참 어두워야 함
+        assert half["L"] < 45.0
+
+    def test_small_black_addition_is_potent(self):
+        """밝은 잉크에 검정 10%는 산술평균보다 훨씬 어둡게 만든다."""
+        white = {"ink_id": "wh", "solid_color_sci": {"L": 95.0, "a": 0.0, "b": 0.0}}
+        black = {"ink_id": "bk", "solid_color_sci": {"L": 5.0, "a": 0.0, "b": 0.0}}
+        mixed = self._blend([white, black], (0.9, 0.1))
+        linear_expectation = 95.0 * 0.9 + 5.0 * 0.1  # 86
+        assert mixed["L"] < linear_expectation - 15.0
+
+    def test_pool_includes_lightness_extremes(self):
+        """후보 풀에 최명·최암 잉크가 항상 포함된다 (명도 조정용)."""
+        from app.services.recipe_matcher import _build_candidate_pool
+        # 목표는 중간 채도 빨강 — 흰/검은 단색 ΔE 기준으로는 멀다
+        target = {"L": 45.0, "a": 55.0, "b": 30.0}
+        inks = [
+            {"ink_id": f"red{i}", "ink_category": "COLOR",
+             "solid_color_sci": {"L": 45.0 + i, "a": 55.0 - i, "b": 30.0}}
+            for i in range(9)
+        ]
+        inks.append({"ink_id": "white", "ink_category": "COLOR",
+                     "solid_color_sci": {"L": 96.0, "a": 0.0, "b": 0.0}})
+        inks.append({"ink_id": "black", "ink_category": "COLOR",
+                     "solid_color_sci": {"L": 4.0, "a": 0.0, "b": 0.0}})
+        pool_ids = {ink["ink_id"] for ink in _build_candidate_pool(inks, target)}
+        assert "white" in pool_ids
+        assert "black" in pool_ids
+
+    def test_recommendations_are_diverse(self):
+        """상위 추천이 동일 조합의 변형으로 도배되지 않는다."""
+        from app.services.recipe_matcher import recommend_recipes
+        inks = [
+            {"ink_id": "wh", "ink_category": "COLOR", "solid_color_sci": {"L": 95.0, "a": 0.0, "b": 0.0}},
+            {"ink_id": "bk", "ink_category": "COLOR", "solid_color_sci": {"L": 5.0, "a": 0.0, "b": 0.0}},
+            {"ink_id": "rd", "ink_category": "COLOR", "solid_color_sci": {"L": 45.0, "a": 60.0, "b": 30.0}},
+            {"ink_id": "ye", "ink_category": "COLOR", "solid_color_sci": {"L": 85.0, "a": -5.0, "b": 80.0}},
+            {"ink_id": "bl", "ink_category": "COLOR", "solid_color_sci": {"L": 30.0, "a": 10.0, "b": -55.0}},
+        ]
+        recipes = recommend_recipes({"L": 50.0, "a": 10.0, "b": 10.0}, inks, top_n=3)
+        assert len(recipes) >= 2
+        sets = [frozenset(i["ink_id"] for i in r["recipe"]) for r in recipes]
+        # 1·2위가 완전히 같은 잉크 집합이면 다양성 실패
+        assert sets[0] != sets[1]
+        # 비율 합은 100
+        for r in recipes:
+            assert abs(sum(i["amount"] for i in r["recipe"]) - 100.0) < 0.5
