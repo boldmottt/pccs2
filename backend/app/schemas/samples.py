@@ -75,6 +75,11 @@ class LayerResponse(BaseModel):
     pad_name: Optional[str] = None
     pad_hardness: Optional[str] = None
     source_file: Optional[str] = None
+    rdp_key: Optional[str] = None
+    batch_no: Optional[str] = None
+    is_base: Optional[bool] = None
+    result: Optional[str] = None
+    target_color_sci: Optional[Dict[str, float]] = None
     print_color_sci: Optional[Dict[str, float]] = None
     print_color_sce: Optional[Dict[str, float]] = None
     delta_E_from_target: Optional[float] = None

@@ -10,8 +10,10 @@ import { Database, Upload, CheckCircle2, FolderSearch, RefreshCw } from 'lucide-
 interface RdpImportResult {
   projects_created: number
   patterns_created: number
+  plates_created: number
   rounds_created: number
   samples_created: number
+  samples_updated: number
   samples_skipped: number
   inks_created: number
   total_rows: number
@@ -28,8 +30,10 @@ const RESULT_LABELS: Array<{ key: keyof RdpImportResult; label: string }> = [
   { key: 'total_rows', label: '전체 배합 행' },
   { key: 'projects_created', label: '프로젝트 생성' },
   { key: 'patterns_created', label: '패턴 생성' },
+  { key: 'plates_created', label: '동판 생성' },
   { key: 'rounds_created', label: '라운드 생성' },
   { key: 'samples_created', label: '샘플 생성' },
+  { key: 'samples_updated', label: '변경 업데이트' },
   { key: 'samples_skipped', label: '중복 건너뜀' },
   { key: 'inks_created', label: '잉크 자동 등록' },
 ]

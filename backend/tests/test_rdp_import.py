@@ -122,6 +122,15 @@ def _upload(api_client, path):
         )
 
 
+def _find_by_key(samples, rdp_key):
+    """rdp_key를 가진 (샘플, 레이어) 쌍을 찾는다."""
+    for s in samples:
+        for ly in s["layers"] or []:
+            if ly.get("rdp_key") == rdp_key:
+                return s, ly
+    raise AssertionError(f"rdp_key not found: {rdp_key}")
+
+
 def test_import_creates_full_hierarchy(api_client, rdp_db_file):
     resp = _upload(api_client, rdp_db_file)
     assert resp.status_code == 200
@@ -130,7 +139,9 @@ def test_import_creates_full_hierarchy(api_client, rdp_db_file):
     assert body["projects_created"] == 2       # NX5a, MQ5
     assert body["patterns_created"] == 2       # WB7 (26_027), M-60507-F1 (26_040)
     assert body["rounds_created"] == 3         # WB7: 05-11, 05-12 / MQ5: 05-11
-    assert body["samples_created"] == 4
+    # 05-12의 1도+2도가 한 샘플로 합쳐져 4행 → 샘플 3개
+    assert body["samples_created"] == 3
+    assert body["samples_updated"] == 0
     assert body["samples_skipped"] == 0
     assert body["inks_created"] == 7           # MT/BK/WH/YE/RD/CL/YE_D 자동 등록
 
@@ -142,35 +153,82 @@ def test_import_creates_full_hierarchy(api_client, rdp_db_file):
 def test_import_maps_colors_and_result(api_client, rdp_db_file):
     _upload(api_client, rdp_db_file)
     samples = api_client.get("/api/samples/").json()
-    by_key = {s["success_notes"]: s for s in samples}
 
-    base = by_key["RDP:NX5a/WB7/26_027/1도/25"]
+    base, layer = _find_by_key(samples, "RDP:NX5a/WB7/26_027/1도/25")
     assert base["success_flag"] == "SUCCESS"
-    assert base["base_color_sci"] == {"L": 73.0, "a": -2.1, "b": 5.2}
+    # 베이스 색은 베이스 마스터에서 관리 — 목표색은 레이어에 저장
+    assert base["base_color_sci"] is None
     assert base["final_delta_e"] == 0.55
-    layer = base["layers"][0]
     assert layer["layer_number"] == 1
     assert layer["print_color_sci"] == {"L": 73.4, "a": -1.9, "b": 5.0}
+    assert layer["target_color_sci"] == {"L": 73.0, "a": -2.1, "b": 5.2}
     assert layer["thinner_pct"] == 30.0
+    assert layer["batch_no"] == "25"
+    assert layer["is_base"] is True
+    assert layer["result"] == "SUCCESS"
     amounts = {i["amount"] for i in layer["ink_items"]}
     assert amounts == {2.3, 35.8, 25.0, 6.3}   # mt, wh, ye, rd (bk=0 제외)
     assert "[기준배합]" in layer["note"]
 
-    failed = by_key["RDP:NX5a/WB7/26_027/2도/AH"]
-    assert failed["success_flag"] == "FAILED"
-    assert failed["layers"][0]["layer_number"] == 2
-    assert "WH-3g" in failed["layers"][0]["note"]
+
+def test_same_day_layers_merge_into_one_sample(api_client, rdp_db_file):
+    """같은 패턴·같은 작업일의 1도/2도는 한 샘플의 레이어 2개로 합쳐진다."""
+    _upload(api_client, rdp_db_file)
+    samples = api_client.get("/api/samples/").json()
+
+    s1, ly1 = _find_by_key(samples, "RDP:NX5a/WB7/26_027/1도/28")
+    s2, ly2 = _find_by_key(samples, "RDP:NX5a/WB7/26_027/2도/AH")
+    assert s1["sample_id"] == s2["sample_id"]
+    assert len(s1["layers"]) == 2
+    assert [ly["layer_number"] for ly in s1["layers"]] == [1, 2]
+    # 1도 ⚠️(PENDING) + 2도 ❌(FAILED) → 샘플은 FAILED
+    assert s1["success_flag"] == "FAILED"
+    # 2도는 delta 없음 → 마지막 delta 보유 레이어(1도)의 값
+    assert s1["final_delta_e"] == 2.31
+    assert "WH-3g" in ly2["note"]
+    assert "YE+3g" in ly1["note"]
+    # success_notes 에 두 키가 모두 기록됨
+    assert "RDP:NX5a/WB7/26_027/1도/28" in s1["success_notes"]
+    assert "RDP:NX5a/WB7/26_027/2도/AH" in s1["success_notes"]
 
 
 def test_reimport_skips_existing(api_client, rdp_db_file):
     first = _upload(api_client, rdp_db_file).json()
-    assert first["samples_created"] == 4
+    assert first["samples_created"] == 3
 
     second = _upload(api_client, rdp_db_file).json()
     assert second["samples_created"] == 0
+    assert second["samples_updated"] == 0
     assert second["samples_skipped"] == 4
     assert second["projects_created"] == 0
     assert second["inks_created"] == 0
+
+
+def test_reimport_updates_changed_rows(api_client, rdp_db_file):
+    """RDP-DB에서 값이 바뀐 행(예: 측색값 추후 입력)은 재가져오기 때 업데이트된다."""
+    _upload(api_client, rdp_db_file)
+
+    conn = sqlite3.connect(rdp_db_file)
+    conn.execute(
+        "UPDATE rdp_mixes SET measured_L=70.0, measured_a=-2.5, measured_b=6.0,"
+        " delta_e=1.2, result='✅' WHERE layer='2도'"
+    )
+    conn.commit()
+    conn.close()
+
+    body = _upload(api_client, rdp_db_file).json()
+    assert body["samples_created"] == 0
+    assert body["samples_updated"] == 1
+    assert body["samples_skipped"] == 3
+
+    samples = api_client.get("/api/samples/").json()
+    s, ly = _find_by_key(samples, "RDP:NX5a/WB7/26_027/2도/AH")
+    assert ly["print_color_sci"] == {"L": 70.0, "a": -2.5, "b": 6.0}
+    assert ly["result"] == "SUCCESS"
+    # 이제 마지막 delta 보유 레이어가 2도 → 샘플 delta 갱신
+    assert s["final_delta_e"] == 1.2
+    # 1도 ⚠️(PENDING) + 2도 ✅ → 샘플은 PENDING
+    assert s["success_flag"] == "PENDING"
 
 
 def test_extended_fields_stored(api_client, rdp_db_file):
@@ -190,9 +248,7 @@ def test_extended_fields_stored(api_client, rdp_db_file):
 
     # Layer JSON 안에 coating / pad / matting / total_g 확인
     samples = api_client.get("/api/samples/").json()
-    by_key = {s["success_notes"]: s for s in samples}
-    base = by_key["RDP:NX5a/WB7/26_027/1도/25"]
-    layer = base["layers"][0]
+    _base, layer = _find_by_key(samples, "RDP:NX5a/WB7/26_027/1도/25")
     assert layer["coating_maker"] == "ACME"
     assert layer["coating_code"] == "CT-01"
     assert layer["coating_lot"] == "L2026-05"
@@ -249,7 +305,7 @@ def test_local_status_existing_file(api_client, rdp_db_file):
 def test_local_import_from_path(api_client, rdp_db_file):
     resp = api_client.post("/api/import/rdp/local", json={"path": str(rdp_db_file)})
     assert resp.status_code == 200
-    assert resp.json()["samples_created"] == 4
+    assert resp.json()["samples_created"] == 3
 
     again = api_client.post("/api/import/rdp/local", json={"path": str(rdp_db_file)})
     assert again.json()["samples_skipped"] == 4

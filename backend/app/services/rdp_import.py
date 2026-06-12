@@ -5,7 +5,10 @@ PCCS2의 Project → Pattern → Round → Sample 계층으로 변환한다.
 
 rdp_mixes 한 행 = 특정 도수(layer)의 배합 1건(batch_no).
 UNIQUE(project, pattern_code, plate, layer, batch_no)가 원본 식별자이며,
-이 키를 Sample.success_notes 에 "RDP:..." 태그로 저장해 재가져오기 시 중복을 건너뛴다.
+이 키를 레이어 JSON의 "rdp_key"에 저장하고 Sample.success_notes 에는 포함된
+키 목록(줄바꿈 구분)을 기록한다. 재가져오기 시 동일 키 행은 비교해
+변경됐으면 업데이트, 동일하면 건너뛴다.
+같은 패턴·같은 작업일의 1도/2도 행은 한 샘플의 레이어들로 합쳐진다.
 """
 
 import sqlite3
@@ -79,6 +82,7 @@ class RdpImportSummary:
     plates_created: int = 0
     rounds_created: int = 0
     samples_created: int = 0
+    samples_updated: int = 0
     samples_skipped: int = 0
     inks_created: int = 0
     errors: list = field(default_factory=list)
