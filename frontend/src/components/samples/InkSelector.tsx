@@ -15,6 +15,12 @@ export function InkSelector({ inks, onSelect, defaultAmount = 10 }: InkSelectorP
   const [selectedInk, setSelectedInk] = useState<string>('')
   const [amount, setAmount] = useState<number>(defaultAmount)
 
+  // 정렬: ⭐ 기본잉크처럼 사용 → 원료 잉크 → 일반 배합 잉크, 각 그룹 내 이름순
+  const sorted = [...inks].sort((a, b) => {
+    const rank = (i: Ink) => (i.is_favorite ? 0 : !i.is_blend_ink ? 1 : 2)
+    return rank(a) - rank(b) || a.ink_name.localeCompare(b.ink_name)
+  })
+
   const selected = inks.find(i => i.ink_id === selectedInk)
 
   const handleAdd = () => {
@@ -32,13 +38,17 @@ export function InkSelector({ inks, onSelect, defaultAmount = 10 }: InkSelectorP
             <SelectValue placeholder="잉크 선택">{selected?.ink_name}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {inks.length === 0 ? (
+            {sorted.length === 0 ? (
               <li className="px-3 py-2 text-sm text-gray-400">등록된 잉크가 없습니다.</li>
             ) : (
-              inks.map(ink => (
+              sorted.map(ink => (
                 <SelectItem key={ink.ink_id} value={ink.ink_id}>
+                  {ink.is_favorite ? '⭐ ' : ''}
                   {ink.ink_name}
-                  <span className="ml-2 text-xs text-gray-400">{ink.ink_category}</span>
+                  <span className="ml-2 text-xs text-gray-400">
+                    {ink.ink_category}
+                    {ink.is_blend_ink ? ' · 배합' : ''}
+                  </span>
                 </SelectItem>
               ))
             )}
