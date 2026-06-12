@@ -188,6 +188,8 @@ class Ink(Base):
     manufacturer = Column(String, nullable=True)
     is_blend_ink = Column(Boolean, default=False)
     blend_recipe = Column(JSON, nullable=True)
+    # 기본잉크처럼 사용: 체크된 배합 잉크는 RDP 엑셀 양식의 잉크 컬럼에 포함된다
+    is_favorite = Column(Boolean, default=False)
     # 배합 잉크의 동판 종속 (없으면 독립 배합). FK 미사용 — 동판 삭제 시
     # 라우터에서 None으로 풀어 독립 배합으로 전환한다.
     plate_id = Column(String, nullable=True)

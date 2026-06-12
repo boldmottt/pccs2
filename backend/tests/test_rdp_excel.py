@@ -291,6 +291,29 @@ def _find_layer_any(samples):
     raise AssertionError("no RDP layer found")
 
 
+def test_favorite_blend_ink_becomes_template_column(api_client):
+    """'기본잉크처럼 사용' 체크된 배합 잉크만 양식 컬럼에 포함된다."""
+    # 배합 잉크 2개 생성: GRAY7(즐겨찾기), GRAY9(일반)
+    for name in ("GRAY7", "GRAY9"):
+        resp = api_client.post(f"/api/inks/blend-{name}/register-blend", json={
+            "ink_name": name,
+            "ink_category": "COLOR",
+            "blend_recipe": {"ink_items": [{"ink_id": "x", "amount": 100}]},
+        })
+        assert resp.status_code == 200
+        if name == "GRAY7":
+            ink_id = resp.json()["ink_id"]
+            upd = api_client.put(f"/api/inks/{ink_id}", json={"is_favorite": True})
+            assert upd.status_code == 200
+            assert upd.json()["is_favorite"] is True
+
+    resp = api_client.get("/api/rdp/excel/template")
+    wb = load_workbook(io.BytesIO(resp.content))
+    header = [c.value for c in next(wb.worksheets[0].iter_rows(max_row=1))]
+    assert "gray7" in header     # 즐겨찾기 배합 → 포함
+    assert "gray9" not in header  # 일반 배합 → 제외
+
+
 def test_sync_back_missing_file_404(api_client, tmp_path):
     resp = api_client.post("/api/rdp/sync-back", json={"path": str(tmp_path / "no.db")})
     assert resp.status_code == 404

@@ -140,6 +140,7 @@ export interface Ink {
   manufacturer?: string | null
   is_blend_ink: boolean
   blend_recipe?: Record<string, unknown> | null
+  is_favorite?: boolean | null
   plate_id?: string | null
   solid_color_sci?: Lab | null
   solid_color_sce?: Lab | null
@@ -159,6 +160,7 @@ export interface InkCreate {
   manufacturer?: string
   is_blend_ink?: boolean
   blend_recipe?: Record<string, unknown>
+  is_favorite?: boolean
   plate_id?: string
   solid_color_sci?: Lab
   solid_color_sce?: Lab

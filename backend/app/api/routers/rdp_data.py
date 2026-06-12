@@ -68,11 +68,15 @@ async def list_rdp_rows(path: str | None = None, project: str | None = None):
 async def download_template(db: AsyncSession = Depends(get_db_session)):
     """빈 입력 양식 (예시 1행 + 컬럼 설명 시트).
 
-    PCCS2 잉크 마스터에 등록된 원료 잉크(배합 잉크 제외)가
+    PCCS2 잉크 마스터의 원료 잉크 + "기본잉크처럼 사용" 체크된 배합 잉크가
     잉크 컬럼으로 자동 포함된다 — 예: GR 등록 → gr 컬럼.
     """
     inks = (
-        await db.scalars(select(Ink).where(Ink.is_blend_ink.is_not(True)))
+        await db.scalars(
+            select(Ink).where(
+                (Ink.is_blend_ink.is_not(True)) | (Ink.is_favorite.is_(True))
+            )
+        )
     ).all()
     extra_inks = [
         ink.ink_name.lower()

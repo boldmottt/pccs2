@@ -21,6 +21,8 @@ def _apply_light_migrations(sync_conn) -> None:
         columns = {col["name"] for col in inspector.get_columns("inks")}
         if "plate_id" not in columns:
             sync_conn.execute(text("ALTER TABLE inks ADD COLUMN plate_id VARCHAR"))
+        if "is_favorite" not in columns:
+            sync_conn.execute(text("ALTER TABLE inks ADD COLUMN is_favorite BOOLEAN"))
 
 
 @asynccontextmanager
