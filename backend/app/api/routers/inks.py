@@ -109,6 +109,7 @@ async def register_blend_ink(
             manufacturer=request.manufacturer,
             is_blend_ink=True,
             blend_recipe=blend_recipe,
+            plate_id=request.plate_id,
             solid_color_sci=blend_recipe.get("solid_color_sci"),
             solid_color_sce=blend_recipe.get("solid_color_sce"),
         )
@@ -116,6 +117,8 @@ async def register_blend_ink(
     else:
         ink.is_blend_ink = True
         ink.blend_recipe = blend_recipe
+        if request.plate_id is not None:
+            ink.plate_id = request.plate_id
         if request.ink_name:
             ink.ink_name = request.ink_name
         if request.ink_category:

@@ -574,3 +574,58 @@ class TestRecipeMatcherPhysics:
         # 비율 합은 100
         for r in recipes:
             assert abs(sum(i["amount"] for i in r["recipe"]) - 100.0) < 0.5
+
+
+class TestPlatesAPI:
+    def _setup_pattern(self, api_client):
+        project = _create_project(api_client)
+        return _create_pattern(api_client, project["project_id"])
+
+    def test_plate_crud_and_hierarchy(self, api_client):
+        pattern = self._setup_pattern(api_client)
+        created = api_client.post("/api/plates/", json={
+            "pattern_id": pattern["pattern_id"],
+            "plate_code": "26_027",
+            "emboss_type": "새틀",
+            "emboss_depth_um": 25,
+        })
+        assert created.status_code == 201
+        plate = created.json()
+
+        listed = api_client.get("/api/plates/", params={"pattern_id": pattern["pattern_id"]}).json()
+        assert [p["plate_code"] for p in listed] == ["26_027"]
+
+        updated = api_client.put(f"/api/plates/{plate['plate_id']}", json={"memo": "테스트"})
+        assert updated.json()["memo"] == "테스트"
+
+        deleted = api_client.delete(f"/api/plates/{plate['plate_id']}")
+        assert deleted.status_code == 200
+        assert api_client.get(f"/api/plates/{plate['plate_id']}").status_code == 404
+
+    def test_plate_duplicate_code_in_pattern_conflict(self, api_client):
+        pattern = self._setup_pattern(api_client)
+        api_client.post("/api/plates/", json={"pattern_id": pattern["pattern_id"], "plate_code": "26_001"})
+        dup = api_client.post("/api/plates/", json={"pattern_id": pattern["pattern_id"], "plate_code": "26_001"})
+        assert dup.status_code == 409
+
+    def test_plate_requires_existing_pattern(self, api_client):
+        resp = api_client.post("/api/plates/", json={"pattern_id": "missing", "plate_code": "26_001"})
+        assert resp.status_code == 404
+
+    def test_blend_ink_binds_to_plate_and_released_on_delete(self, api_client):
+        pattern = self._setup_pattern(api_client)
+        plate = api_client.post("/api/plates/", json={
+            "pattern_id": pattern["pattern_id"], "plate_code": "26_099",
+        }).json()
+
+        blend = api_client.post("/api/inks/new-plate-blend/register-blend", json={
+            "ink_name": "동판 종속 배합",
+            "plate_id": plate["plate_id"],
+            "blend_recipe": {"ink_items": [{"ink_id": "x", "amount": 10}]},
+        }).json()
+        assert blend["plate_id"] == plate["plate_id"]
+
+        # 동판 삭제 시 배합은 독립 배합으로 전환
+        api_client.delete(f"/api/plates/{plate['plate_id']}")
+        released = api_client.get(f"/api/inks/{blend['ink_id']}").json()
+        assert released["plate_id"] is None

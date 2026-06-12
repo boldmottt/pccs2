@@ -7,5 +7,6 @@ from app.api.routers import match
 from app.api.routers import predict
 from app.api.routers import import_rdp
 from app.api.routers import bases
+from app.api.routers import plates
 
-__all__ = ["projects", "patterns", "rounds", "samples", "inks", "match", "predict", "import_rdp", "bases"]
+__all__ = ["projects", "patterns", "rounds", "samples", "inks", "match", "predict", "import_rdp", "bases", "plates"]

@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database.session import get_db_session
-from app.models.domain import Ink, Pattern, Project, Round, Sample
+from app.models.domain import Ink, Pattern, Plate, Project, Round, Sample
 from app.services.rdp_import import (
     RDP_INK_COLUMNS,
     RdpImportSummary,
@@ -128,6 +128,7 @@ async def _import_content(content: bytes, db: AsyncSession):
     # 캐시: 같은 요청 내 find-or-create 반복 조회 방지
     projects: dict[str, Project] = {}
     patterns: dict[tuple, Pattern] = {}
+    plates: dict[tuple, Plate] = {}
     rounds: dict[tuple, Round] = {}
 
     for rec in records:
@@ -182,6 +183,28 @@ async def _import_content(content: bytes, db: AsyncSession):
             elif rec.target_color and not pattern.target_base_color_sci:
                 pattern.target_base_color_sci = rec.target_color
             patterns[pkey] = pattern
+
+        # Plate (동판 마스터): 차종 > 패턴 > 동판 계층 유지
+        if rec.plate:
+            plkey = (pattern.pattern_id, rec.plate)
+            if plkey not in plates:
+                plate = await db.scalar(
+                    select(Plate)
+                    .where(Plate.pattern_id == pattern.pattern_id)
+                    .where(Plate.plate_code == rec.plate)
+                    .limit(1)
+                )
+                if plate is None:
+                    plate = Plate(
+                        plate_id=str(uuid4()),
+                        pattern_id=pattern.pattern_id,
+                        plate_code=rec.plate,
+                        memo="RDP-DB 가져오기로 자동 생성",
+                    )
+                    db.add(plate)
+                    await db.flush()
+                    summary.plates_created += 1
+                plates[plkey] = plate
 
         # Round (패턴 + 작업일 단위)
         rkey = (pattern.pattern_id, rec.date)
@@ -259,6 +282,7 @@ async def _import_content(content: bytes, db: AsyncSession):
     return {
         "projects_created": summary.projects_created,
         "patterns_created": summary.patterns_created,
+        "plates_created": summary.plates_created,
         "rounds_created": summary.rounds_created,
         "samples_created": summary.samples_created,
         "samples_skipped": summary.samples_skipped,
