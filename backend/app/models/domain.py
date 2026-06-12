@@ -73,6 +73,7 @@ class Pattern(Base):
 
     project = relationship("Project", back_populates="patterns")
     rounds = relationship("Round", back_populates="pattern", cascade="all, delete-orphan")
+    plates = relationship("Plate", back_populates="pattern", cascade="all, delete-orphan")
     samples = relationship(
         "Sample",
         back_populates="pattern",
@@ -84,6 +85,28 @@ class Pattern(Base):
         Index('idx_pattern_name', 'pattern_name'),
         Index('idx_pattern_project', 'project_id'),
         Index('idx_pattern_status', 'status'),
+    )
+
+
+class Plate(Base):
+    """동판 마스터 — 패턴에 종속 (차종 > 패턴 > 동판 > 배합비)."""
+
+    __tablename__ = "plates"
+
+    plate_id = Column(String, primary_key=True)
+    pattern_id = Column(String, ForeignKey("patterns.pattern_id"), nullable=False)
+    plate_code = Column(String, nullable=False)
+    emboss_type = Column(String, nullable=True)
+    emboss_depth_um = Column(Integer, nullable=True)
+    memo = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    pattern = relationship("Pattern", back_populates="plates")
+
+    __table_args__ = (
+        Index('idx_plate_pattern', 'pattern_id'),
+        Index('idx_plate_code', 'plate_code'),
     )
 
 
@@ -165,6 +188,9 @@ class Ink(Base):
     manufacturer = Column(String, nullable=True)
     is_blend_ink = Column(Boolean, default=False)
     blend_recipe = Column(JSON, nullable=True)
+    # 배합 잉크의 동판 종속 (없으면 독립 배합). FK 미사용 — 동판 삭제 시
+    # 라우터에서 None으로 풀어 독립 배합으로 전환한다.
+    plate_id = Column(String, nullable=True)
     solid_color_sci = Column(JSON, nullable=True)
     solid_color_sce = Column(JSON, nullable=True)
     delta_sci_sce = Column(Float, nullable=True)

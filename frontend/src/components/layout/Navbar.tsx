@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Palette, FolderKanban, Beaker, FlaskConical, Wand2, Database, Square } from 'lucide-react'
+import { Palette, FolderKanban, Beaker, FlaskConical, Wand2, Database, Square, GitBranch } from 'lucide-react'
 import { clsx } from 'clsx'
 
 const NAV_ITEMS = [
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: '/samples', label: '샘플', Icon: FlaskConical },
   { href: '/inks', label: '잉크', Icon: Beaker },
   { href: '/bases', label: '베이스', Icon: Square },
+  { href: '/blends', label: '배합 계층', Icon: GitBranch },
   { href: '/match', label: '배합 추천', Icon: Wand2 },
   { href: '/import', label: 'RDP 가져오기', Icon: Database },
 ]

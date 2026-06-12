@@ -8,6 +8,7 @@ import { patternsApi } from '@/lib/api/patterns'
 import { roundsApi } from '@/lib/api/rounds'
 import { inksApi } from '@/lib/api/inks'
 import { basesApi } from '@/lib/api/bases'
+import { platesApi } from '@/lib/api/plates'
 import { getErrorMessage } from '@/lib/api/client'
 import type { Ink, InkItem, Layer, SampleCreate } from '@/lib/types/project'
 import type { Lab } from '@/lib/types/color'
@@ -74,11 +75,27 @@ function LabInputs({
   )
 }
 
-/** 레이어 배합을 마스터 잉크로 등록하는 인라인 폼 */
+/** 레이어 배합을 마스터 잉크로 등록하는 인라인 폼 (동판 종속 선택 가능) */
 function RegisterBlendForm({ layer }: { layer: Layer }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [inkName, setInkName] = useState('')
+  const [plateId, setPlateId] = useState('')
+
+  const platesQuery = useQuery({
+    queryKey: ['plates'],
+    queryFn: () => platesApi.list(),
+    enabled: open,
+  })
+  const allPatternsForPlates = useQuery({
+    queryKey: ['patterns'],
+    queryFn: () => patternsApi.list(),
+    enabled: open,
+  })
+  const plateLabel = (plate: { pattern_id: string; plate_code: string }) => {
+    const pattern = allPatternsForPlates.data?.find(p => p.pattern_id === plate.pattern_id)
+    return pattern ? `${pattern.pattern_name} / ${plate.plate_code}` : plate.plate_code
+  }
 
   const mutation = useMutation({
     mutationFn: (name: string) =>
@@ -86,10 +103,12 @@ function RegisterBlendForm({ layer }: { layer: Layer }) {
         ink_name: name,
         ink_category: 'COLOR',
         blend_recipe: { ink_items: layer.ink_items },
+        ...(plateId ? { plate_id: plateId } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inks'] })
       setInkName('')
+      setPlateId('')
       setOpen(false)
     },
   })
@@ -115,8 +134,8 @@ function RegisterBlendForm({ layer }: { layer: Layer }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-end gap-2">
-        <div className="flex-1 max-w-xs">
+      <div className="flex items-end gap-2 flex-wrap">
+        <div className="flex-1 max-w-xs min-w-[180px]">
           <label className="block text-xs text-gray-500 mb-1">잉크 이름</label>
           <input
             type="text"
@@ -126,6 +145,21 @@ function RegisterBlendForm({ layer }: { layer: Layer }) {
             className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600 text-sm"
             autoFocus
           />
+        </div>
+        <div className="w-56">
+          <label className="block text-xs text-gray-500 mb-1">동판 종속 (선택)</label>
+          <select
+            value={plateId}
+            onChange={e => setPlateId(e.target.value)}
+            className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600 text-sm bg-white"
+          >
+            <option value="">독립 배합 (종속 없음)</option>
+            {(platesQuery.data ?? []).map(plate => (
+              <option key={plate.plate_id} value={plate.plate_id}>
+                {plateLabel(plate)}
+              </option>
+            ))}
+          </select>
         </div>
         <Button
           size="sm"

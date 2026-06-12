@@ -140,6 +140,7 @@ export interface Ink {
   manufacturer?: string | null
   is_blend_ink: boolean
   blend_recipe?: Record<string, unknown> | null
+  plate_id?: string | null
   solid_color_sci?: Lab | null
   solid_color_sce?: Lab | null
   delta_sci_sce?: number | null
@@ -158,6 +159,7 @@ export interface InkCreate {
   manufacturer?: string
   is_blend_ink?: boolean
   blend_recipe?: Record<string, unknown>
+  plate_id?: string
   solid_color_sci?: Lab
   solid_color_sce?: Lab
   gloss_GU?: number
@@ -187,5 +189,25 @@ export interface BaseMasterCreate {
   color_sci?: Lab
   color_sce?: Lab
   maker?: string
+  memo?: string
+}
+
+// ---------- Plate (동판) ----------
+export interface Plate {
+  plate_id: string
+  pattern_id: string
+  plate_code: string
+  emboss_type?: string | null
+  emboss_depth_um?: number | null
+  memo?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PlateCreate {
+  pattern_id: string
+  plate_code: string
+  emboss_type?: string
+  emboss_depth_um?: number
   memo?: string
 }

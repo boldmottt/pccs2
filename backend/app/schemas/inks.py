@@ -17,6 +17,7 @@ class InkCreate(BaseModel):
     ink_name: str = Field(..., min_length=1, max_length=200)
     ink_category: InkCategoryEnum = InkCategoryEnum.COLOR
     manufacturer: Optional[str] = None
+    plate_id: Optional[str] = None
     solid_color_sci: Optional[Dict[str, float]] = None
     solid_color_sce: Optional[Dict[str, float]] = None
     gloss_GU: Optional[float] = None
@@ -31,6 +32,7 @@ class InkUpdate(BaseModel):
     ink_name: Optional[str] = Field(None, min_length=1, max_length=200)
     ink_category: Optional[InkCategoryEnum] = None
     manufacturer: Optional[str] = None
+    plate_id: Optional[str] = None
     solid_color_sci: Optional[Dict[str, float]] = None
     solid_color_sce: Optional[Dict[str, float]] = None
     gloss_GU: Optional[float] = None
@@ -45,6 +47,7 @@ class RegisterBlendRequest(BaseModel):
     ink_name: Optional[str] = None
     ink_category: Optional[InkCategoryEnum] = None
     manufacturer: Optional[str] = None
+    plate_id: Optional[str] = None
     blend_recipe: Optional[Dict[str, Any]] = None
 
 
@@ -57,6 +60,7 @@ class InkResponse(BaseModel):
     manufacturer: Optional[str]
     is_blend_ink: bool
     blend_recipe: Optional[Dict[str, Any]]
+    plate_id: Optional[str] = None
     solid_color_sci: Optional[Dict[str, float]]
     solid_color_sce: Optional[Dict[str, float]]
     delta_sci_sce: Optional[float]

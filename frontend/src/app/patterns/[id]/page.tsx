@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { patternsApi } from '@/lib/api/patterns'
+import { platesApi } from '@/lib/api/plates'
 import { roundsApi } from '@/lib/api/rounds'
 import { samplesApi } from '@/lib/api/samples'
 import { getErrorMessage } from '@/lib/api/client'
@@ -15,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { ColorTrendChart, type DataPoint } from '@/components/visualization/ColorTrendChart'
 import { SuccessFlagBadge } from '@/components/samples/SuccessFlagBadge'
-import { ArrowLeft, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Stamp, Trash2, X } from 'lucide-react'
 
 const PATTERN_STATUS_LABEL: Record<Pattern['status'], string> = {
   DEVELOPING: '개발 중',
@@ -231,6 +232,112 @@ function EditPatternForm({ pattern, onClose }: { pattern: Pattern; onClose: () =
   )
 }
 
+function PlatesSection({ patternId }: { patternId: string }) {
+  const queryClient = useQueryClient()
+  const [newCode, setNewCode] = useState('')
+  const [newEmboss, setNewEmboss] = useState('')
+
+  const platesQuery = useQuery({
+    queryKey: ['plates', patternId],
+    queryFn: () => platesApi.list({ pattern_id: patternId }),
+  })
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      platesApi.create({
+        pattern_id: patternId,
+        plate_code: newCode.trim(),
+        emboss_type: newEmboss.trim() || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plates', patternId] })
+      setNewCode('')
+      setNewEmboss('')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (plateId: string) => platesApi.remove(plateId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plates', patternId] })
+    },
+  })
+
+  return (
+    <Card className="mb-8">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2">
+          <Stamp className="w-4 h-4" />
+          동판
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {platesQuery.isLoading ? (
+          <p className="text-sm text-gray-500">동판을 불러오는 중...</p>
+        ) : platesQuery.data && platesQuery.data.length > 0 ? (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {platesQuery.data.map(plate => (
+              <span
+                key={plate.plate_id}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 text-sm"
+              >
+                {plate.plate_code}
+                {plate.emboss_type && (
+                  <span className="text-xs text-gray-400">{plate.emboss_type}</span>
+                )}
+                <button
+                  type="button"
+                  title="동판 삭제 (종속 배합은 독립 배합으로 전환)"
+                  onClick={() => {
+                    if (window.confirm(`동판 "${plate.plate_code}"을(를) 삭제할까요?\n종속된 배합은 독립 배합으로 전환됩니다.`)) {
+                      deleteMutation.mutate(plate.plate_id)
+                    }
+                  }}
+                  className="text-gray-300 hover:text-red-500"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 mb-4">등록된 동판이 없습니다.</p>
+        )}
+
+        <div className="flex items-end gap-2 flex-wrap">
+          <div className="w-40">
+            <Input
+              label="동판 코드"
+              placeholder="예: 26_027"
+              value={newCode}
+              onChange={e => setNewCode(e.target.value)}
+            />
+          </div>
+          <div className="w-40">
+            <Input
+              label="엠보 (선택)"
+              placeholder="예: 새틀"
+              value={newEmboss}
+              onChange={e => setNewEmboss(e.target.value)}
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => createMutation.mutate()}
+            disabled={!newCode.trim() || createMutation.isPending}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            {createMutation.isPending ? '추가 중...' : '동판 추가'}
+          </Button>
+        </div>
+        {createMutation.isError && (
+          <p className="text-sm text-red-600 mt-2">{getErrorMessage(createMutation.error)}</p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function PatternDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
@@ -383,6 +490,8 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         </div>
         )
       ) : null}
+
+      <PlatesSection patternId={id} />
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">라운드</h2>

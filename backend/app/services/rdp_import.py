@@ -58,6 +58,7 @@ class RdpMixRecord:
 class RdpImportSummary:
     projects_created: int = 0
     patterns_created: int = 0
+    plates_created: int = 0
     rounds_created: int = 0
     samples_created: int = 0
     samples_skipped: int = 0
