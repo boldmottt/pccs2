@@ -183,3 +183,51 @@ class TestCalculateWeightedAverage:
         assert abs(result["L"] - 50.0) < 0.001
         assert abs(result["a"] - 25.0) < 0.001
         assert abs(result["b"] - (-25.0)) < 0.001
+
+
+class TestCiede2000:
+    """CIEDE2000 — Sharma et al. (2005) 공인 테스트 벡터."""
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("lab1,lab2,expected", [
+        ({"L": 50, "a": 2.6772, "b": -79.7751}, {"L": 50, "a": 0, "b": -82.7485}, 2.0425),
+        ({"L": 50, "a": 3.1571, "b": -77.2803}, {"L": 50, "a": 0, "b": -82.7485}, 2.8615),
+        ({"L": 50, "a": 2.8361, "b": -74.0200}, {"L": 50, "a": 0, "b": -82.7485}, 3.4412),
+        ({"L": 50, "a": 2.5, "b": 0}, {"L": 73, "a": 25, "b": -18}, 27.1492),
+        ({"L": 50, "a": 2.5, "b": 0}, {"L": 61, "a": -5, "b": 29}, 22.8977),
+        ({"L": 50, "a": 2.5, "b": 0}, {"L": 50, "a": 3.1736, "b": 0.5854}, 1.0000),
+        # C'=0 처리
+        ({"L": 50, "a": 0, "b": 0}, {"L": 50, "a": -1, "b": 2}, 2.3669),
+        # Δh' 180° 불연속
+        ({"L": 50, "a": 2.4900, "b": -0.0010}, {"L": 50, "a": -2.4900, "b": 0.0009}, 7.1792),
+        # hue 평균 불연속
+        ({"L": 50, "a": -0.0010, "b": 2.4900}, {"L": 50, "a": 0.0009, "b": -2.4900}, 4.8045),
+    ])
+    def test_sharma_vectors(self, lab1, lab2, expected):
+        from app.services.color_math import calculate_delta_e_2000
+        assert abs(calculate_delta_e_2000(lab1, lab2) - expected) < 1e-4
+
+    @pytest.mark.unit
+    def test_symmetric_and_identity(self):
+        from app.services.color_math import calculate_delta_e_2000
+        c1 = {"L": 40.0, "a": 12.0, "b": -30.0}
+        c2 = {"L": 55.0, "a": -8.0, "b": 14.0}
+        assert calculate_delta_e_2000(c1, c1) == 0.0
+        assert abs(
+            calculate_delta_e_2000(c1, c2) - calculate_delta_e_2000(c2, c1)
+        ) < 1e-9
+
+
+class TestLabRgbRoundtrip:
+    @pytest.mark.unit
+    def test_roundtrip_preserves_in_gamut_colors(self):
+        from app.services.color_math import lab_to_rgb_reflectance, rgb_reflectance_to_lab
+        # sRGB 색역 안의 색만 사용 (색역 밖은 클램프로 정보 손실이 정상 동작)
+        for color in (
+            {"L": 50.0, "a": 0.0, "b": 0.0},
+            {"L": 80.0, "a": 10.0, "b": 30.0},
+            {"L": 45.0, "a": -10.0, "b": -8.0},
+        ):
+            back = rgb_reflectance_to_lab(lab_to_rgb_reflectance(color))
+            for ch in ("L", "a", "b"):
+                assert abs(back[ch] - color[ch]) < 0.5

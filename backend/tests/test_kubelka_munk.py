@@ -101,21 +101,22 @@ class TestCalculateReflectanceInfinite:
         """Test reflectance calculation with positive K/S."""
         K_over_S = 1.0
         # a = 1 + 1 = 2
-        # R_inf = (2 - sqrt(4-1)) / (2 + sqrt(4-1)) = (2 - 1.732) / (2 + 1.732)
+        # R_inf = a - sqrt(a^2 - 1) = 2 - sqrt(3) = 0.2679...
         result = KubelkaMunkCoefficients.calculate_reflectance_infinite(K_over_S)
-        a = 2.0
-        sqrt_term = math.sqrt(a**2 - 1)
-        expected = (a - sqrt_term) / (a + sqrt_term)
+        expected = 2.0 - math.sqrt(3.0)
         assert result == pytest.approx(expected, rel=1e-10)
+        # K-M 정합성: R_inf를 K/S로 되돌리면 원래 값이 나와야 한다
+        # K/S = (1 - R)^2 / (2R)
+        roundtrip = (1 - result) ** 2 / (2 * result)
+        assert roundtrip == pytest.approx(K_over_S, rel=1e-9)
 
     @pytest.mark.unit
     def test_calculate_reflectance_small_k_over_s(self):
         """Test with small K/S ratio gives high reflectance."""
         K_over_S = 0.1
         result = KubelkaMunkCoefficients.calculate_reflectance_infinite(K_over_S)
-        # a = 1.1, sqrt(1.21-1) = sqrt(0.21) = 0.458
-        # R_inf = (1.1 - 0.458) / (1.1 + 0.458) = 0.642 / 1.558 = 0.412
-        expected = 0.4118333471097151
+        # a = 1.1, R_inf = 1.1 - sqrt(0.21) = 0.6417...
+        expected = 1.1 - math.sqrt(0.21)
         assert result == pytest.approx(expected, rel=1e-10)
         assert result <= 1.0
 
