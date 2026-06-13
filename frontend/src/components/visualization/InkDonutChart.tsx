@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
+import { labToCss, deltaE76, type Lab } from '@/lib/types/color'
 
 export interface InkData {
   inkId: string
@@ -10,18 +11,26 @@ export interface InkData {
   color?: string
 }
 
+/** 도넛 중앙 표시: 예측 믹스색과 실측색 (둘 다 있으면 반반 + ΔE) */
+export interface DonutCenter {
+  predicted?: Lab | null
+  actual?: Lab | null
+}
+
 interface InkDonutChartProps {
   inks: InkData[]
   totalAmount: number
   size?: 'sm' | 'md' | 'lg'
   showLabels?: boolean
+  center?: DonutCenter
 }
 
 export function InkDonutChart({
   inks,
   totalAmount,
   size = 'md',
-  showLabels = true
+  showLabels = true,
+  center,
 }: InkDonutChartProps) {
   const sizeClasses = {
     sm: 'w-24 h-24',
@@ -109,6 +118,10 @@ export function InkDonutChart({
     )
   }
 
+  const predicted = center?.predicted ?? null
+  const actual = center?.actual ?? null
+  const centerDeltaE = predicted && actual ? deltaE76(predicted, actual) : null
+
   return (
     <div className="flex flex-col items-center gap-2">
       <svg
@@ -123,6 +136,23 @@ export function InkDonutChart({
             className="hover:opacity-80 transition-opacity"
           />
         ))}
+        {/* 중앙: 예측 믹스색 / 실측색 — 둘 다 있으면 좌(예측)·우(실측) 반반 */}
+        {predicted && actual ? (
+          <>
+            <path d="M 50 28 A 22 22 0 0 0 50 72 Z" fill={labToCss(predicted)}>
+              <title>예측 믹스</title>
+            </path>
+            <path d="M 50 28 A 22 22 0 0 1 50 72 Z" fill={labToCss(actual)}>
+              <title>실측</title>
+            </path>
+            <line x1="50" y1="28" x2="50" y2="72" stroke="white" strokeWidth="0.8" />
+            <circle cx="50" cy="50" r="22" fill="none" stroke="white" strokeWidth="1" />
+          </>
+        ) : predicted || actual ? (
+          <circle cx="50" cy="50" r="22" fill={labToCss((predicted || actual)!)} stroke="white" strokeWidth="1">
+            <title>{predicted ? '예측 믹스' : '실측'}</title>
+          </circle>
+        ) : null}
         {showLabels && labels.map((label, index) => (
           <text
             key={index}
@@ -140,6 +170,24 @@ export function InkDonutChart({
       <div className="text-xs text-gray-600">
         총량: {totalAmount.toFixed(1)}g
       </div>
+      {predicted && actual ? (
+        <div
+          className={cn(
+            'text-xs font-medium',
+            centerDeltaE !== null && centerDeltaE <= 1.0
+              ? 'text-emerald-600'
+              : centerDeltaE !== null && centerDeltaE <= 3.0
+                ? 'text-amber-600'
+                : 'text-red-600',
+          )}
+        >
+          좌 예측 · 우 실측 ΔE {centerDeltaE?.toFixed(2)}
+        </div>
+      ) : predicted ? (
+        <div className="text-xs text-gray-400">중앙: 예측 믹스</div>
+      ) : actual ? (
+        <div className="text-xs text-gray-400">중앙: 실측</div>
+      ) : null}
     </div>
   )
 }

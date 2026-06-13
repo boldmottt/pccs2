@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database.session import dispose_engine, get_engine
 from app.models.domain import Base
-from app.api.routers import projects, patterns, rounds, samples, inks, match, predict, import_rdp, bases, plates
+from app.api.routers import projects, patterns, rounds, samples, inks, match, predict, import_rdp, bases, plates, rdp_data
 
 settings = get_settings()
 
@@ -21,6 +21,8 @@ def _apply_light_migrations(sync_conn) -> None:
         columns = {col["name"] for col in inspector.get_columns("inks")}
         if "plate_id" not in columns:
             sync_conn.execute(text("ALTER TABLE inks ADD COLUMN plate_id VARCHAR"))
+        if "is_favorite" not in columns:
+            sync_conn.execute(text("ALTER TABLE inks ADD COLUMN is_favorite BOOLEAN"))
 
 
 @asynccontextmanager
@@ -58,6 +60,7 @@ app.include_router(match.router)
 app.include_router(predict.router)
 app.include_router(import_rdp.router)
 app.include_router(plates.router)
+app.include_router(rdp_data.router)
 
 
 @app.get("/")

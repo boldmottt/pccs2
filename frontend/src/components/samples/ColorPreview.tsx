@@ -5,7 +5,7 @@ import { predictApi, type PredictResponse } from '@/lib/api/predict'
 import { getErrorMessage } from '@/lib/api/client'
 import { ColorComparison } from '@/components/color/ColorComparison'
 import { InkDonutChart, type InkData } from '@/components/visualization/InkDonutChart'
-import { labToCss, type Lab } from '@/lib/types/color'
+import { labToCss, mixInksLab, type Lab } from '@/lib/types/color'
 import type { Ink, Layer } from '@/lib/types/project'
 import { Button } from '@/components/ui/Button'
 
@@ -42,6 +42,8 @@ export function ColorPreview({ layers, baseColor, onPredict, inks = [] }: ColorP
     const sci = inks.find(i => i.ink_id === inkId)?.solid_color_sci
     return sci ? labToCss(sci) : getColorForInk(inkId)
   }
+
+  const inkLab = (inkId: string) => inks.find(i => i.ink_id === inkId)?.solid_color_sci ?? null
 
   const handlePredict = async () => {
     if (layers.length === 0 || layers.some(l => l.ink_items.length === 0)) {
@@ -129,6 +131,10 @@ export function ColorPreview({ layers, baseColor, onPredict, inks = [] }: ColorP
                 color: inkColor(item.ink_id),
               }))
               const layerTotal = layerInks.reduce((sum, ink) => sum + ink.amount, 0)
+              // 중앙: Lab 등록된 잉크들의 가중평균(예측 믹스) + 입력된 실측색
+              const predictedMix = mixInksLab(
+                layer.ink_items.map(it => ({ amount: it.amount, lab: inkLab(it.ink_id) })),
+              )
 
               return (
                 <div key={layer.layer_number} className="border border-gray-200 rounded-lg p-4">
@@ -143,6 +149,7 @@ export function ColorPreview({ layers, baseColor, onPredict, inks = [] }: ColorP
                         totalAmount={layerTotal}
                         size="sm"
                         showLabels={false}
+                        center={{ predicted: predictedMix, actual: layer.print_color_sci }}
                       />
                       <div className="flex-1 space-y-1">
                         {layerInks.map(item => (

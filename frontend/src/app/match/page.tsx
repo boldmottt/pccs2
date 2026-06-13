@@ -45,7 +45,13 @@ function RecipeCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-start gap-6">
-          <InkDonutChart inks={inkData} totalAmount={totalAmount} size="sm" showLabels={false} />
+          <InkDonutChart
+            inks={inkData}
+            totalAmount={totalAmount}
+            size="sm"
+            showLabels={false}
+            center={{ predicted: recipe.predicted_color }}
+          />
           <div className="flex-1 min-w-[180px] space-y-1">
             {inkData.map(item => (
               <div key={item.inkId} className="flex items-center justify-between text-sm">

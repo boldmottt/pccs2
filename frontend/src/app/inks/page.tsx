@@ -7,7 +7,7 @@ import { getErrorMessage } from '@/lib/api/client'
 import type { Ink, InkCreate } from '@/lib/types/project'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Plus, X, Beaker, ChevronDown, Pencil } from 'lucide-react'
+import { Plus, X, Beaker, ChevronDown, Pencil, Star } from 'lucide-react'
 
 const INK_CATEGORIES = [
   { value: 'COLOR', label: '컬러 (COLOR)' },
@@ -43,7 +43,12 @@ function InkCard({ ink, onEdit }: { ink: Ink; onEdit: () => void }) {
         <Pencil className="w-4 h-4" />
       </button>
       <div className="flex items-start justify-between mb-2">
-        <h3 className="font-semibold text-gray-900 truncate pr-2">{ink.ink_name}</h3>
+        <h3 className="font-semibold text-gray-900 truncate pr-2 flex items-center gap-1.5">
+          {ink.is_favorite && (
+            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+          )}
+          {ink.ink_name}
+        </h3>
         <CategoryBadge category={ink.ink_category} />
       </div>
       {ink.manufacturer && (
@@ -81,6 +86,7 @@ function InkRegistrationForm({
           ink_name: ink.ink_name,
           ink_category: ink.ink_category,
           manufacturer: ink.manufacturer ?? undefined,
+          is_favorite: ink.is_favorite ?? false,
           solid_color_sci: ink.solid_color_sci ?? undefined,
           solid_color_sce: ink.solid_color_sce ?? undefined,
           gloss_GU: ink.gloss_GU ?? undefined,
@@ -186,6 +192,24 @@ function InkRegistrationForm({
           value={form.manufacturer ?? ''}
           onChange={e => updateField('manufacturer', e.target.value || undefined)}
         />
+
+        <label className="flex items-start gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={form.is_favorite ?? false}
+            onChange={e => updateField('is_favorite', e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
+          />
+          <span className="text-sm">
+            <span className="font-medium text-gray-700 flex items-center gap-1">
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              기본잉크처럼 사용
+            </span>
+            <span className="text-gray-400 text-xs">
+              체크하면 배합 잉크여도 RDP 엑셀 양식에 잉크 컬럼으로 포함됩니다 (영문 이름 필요)
+            </span>
+          </span>
+        </label>
 
         <div>
           <button

@@ -3,11 +3,19 @@
 POST /api/import/rdp — rdp.db(SQLite) 파일 업로드 → PCCS2 계층으로 변환.
 POST /api/import/rdp/local — 서버 로컬 경로의 rdp.db를 직접 읽어 가져오기.
 GET  /api/import/rdp/local-status — 로컬 rdp.db 경로/존재 여부 확인.
-같은 파일을 다시 올려도 이미 가져온 배합(RDP 고유키)은 건너뛴다.
+
+재가져오기 규칙: 이미 가져온 배합(레이어의 rdp_key)과 내용이 같으면 건너뛰고,
+RDP-DB 쪽에서 값이 바뀐 행(예: 측색값 추후 입력)은 해당 레이어를 업데이트한다.
+
+1도/2도 합치기: 같은 패턴·같은 작업일에 각 도수가 정확히 1건씩일 때만
+한 샘플의 레이어들로 합친다. 같은 도수가 2건 이상인 날은 어느 1도 위에
+어느 2도를 찍었는지 원본에 정보가 없으므로(시편 ID 부재) 추측하지 않고
+행마다 별도 샘플로 만든다.
 """
 
 import os
 import tempfile
+from collections import Counter, defaultdict
 from datetime import date as date_type, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -16,6 +24,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.config import get_settings
 from app.database.session import get_db_session
@@ -23,6 +32,7 @@ from app.models.domain import Ink, Pattern, Plate, Project, Round, Sample
 from app.services.rdp_import import (
     RDP_INK_COLUMNS,
     RdpImportSummary,
+    RdpMixRecord,
     read_rdp_mixes,
 )
 
@@ -50,16 +60,92 @@ def _parse_date(value: str):
         return None
 
 
-async def _ensure_inks(db: AsyncSession, summary: RdpImportSummary) -> dict:
-    """RDP 기본 잉크(MT/BK/WH/YE/RD/CL/YE_D)를 마스터에 보장하고 name→ink_id 맵 반환."""
+def _build_layer(rec: RdpMixRecord, ink_ids: dict) -> dict:
+    """rdp_mixes 한 행을 샘플 레이어 JSON으로 변환."""
+    note_parts = [f"배합 {rec.batch_no}"]
+    if rec.is_base:
+        note_parts.append("[기준배합]")
+    if rec.note:
+        note_parts.append(rec.note)
+
+    layer: dict = {
+        "layer_number": rec.layer_number,
+        "ink_items": [
+            {"ink_id": ink_ids[name], "ink_name": name, "amount": amount}
+            for name, amount in rec.ink_amounts.items()
+        ],
+        "thinner_pct": rec.thinner_pct,
+        "hardener_pct": rec.hardener_pct,
+        "print_color_sci": rec.measured_color,
+        "print_color_sce": rec.measured_color_sce,
+        "delta_E_from_target": rec.delta_e,
+        "note": " | ".join(note_parts),
+        # 행 단위 메타: rdp_key는 중복/업데이트 판정 키
+        "rdp_key": rec.rdp_key,
+        "batch_no": rec.batch_no,
+        "is_base": rec.is_base,
+        "result": rec.success_flag,
+    }
+    # 선택적 필드: None이 아닌 것만 포함해 JSON을 간결하게 유지
+    optionals = {
+        "target_color_sci": rec.target_color,
+        "target_color_sce": rec.target_color_sce,
+        "change_summary": rec.note,
+        "thinner_g": rec.thinner_g,
+        "hardener_g": rec.hardener_g,
+        "matting_agent_pct": rec.matting_agent_pct,
+        "matting_agent_g": rec.matting_agent_g,
+        "total_g": rec.total_g,
+        "coating_maker": rec.coating_maker,
+        "coating_code": rec.coating_code,
+        "coating_lot": rec.coating_lot,
+        "pad_name": rec.pad_name,
+        "pad_hardness": rec.pad_hardness,
+        "source_file": rec.source_file,
+    }
+    layer.update({k: v for k, v in optionals.items() if v is not None})
+    return layer
+
+
+def _recompute_sample(sample: Sample) -> None:
+    """레이어들로부터 샘플 집계 필드를 재계산 (도수 순 정렬 포함)."""
+    layers = sorted(sample.layers or [], key=lambda ly: ly.get("layer_number") or 0)
+    sample.layers = layers
+    flag_modified(sample, "layers")
+
+    flags = [ly.get("result") for ly in layers]
+    if any(f == "FAILED" for f in flags):
+        sample.success_flag = "FAILED"
+    elif flags and all(f == "SUCCESS" for f in flags):
+        sample.success_flag = "SUCCESS"
+    else:
+        sample.success_flag = "PENDING"
+
+    final_de = None
+    for ly in layers:
+        if ly.get("delta_E_from_target") is not None:
+            final_de = ly["delta_E_from_target"]
+    sample.final_delta_e = final_de
+
+    keys = sorted(k for k in (ly.get("rdp_key") for ly in layers) if k)
+    sample.success_notes = "\n".join(keys)
+
+
+async def _ensure_inks(
+    db: AsyncSession, summary: RdpImportSummary, extra_names: set[str] = frozenset()
+) -> dict:
+    """RDP 기본 잉크(MT/BK/WH/YE/RD/CL/YE_D)와 데이터에 등장한 사용자 추가
+    잉크를 마스터에 보장하고 name→ink_id 맵을 반환."""
+    categories = {name: cat for _col, (name, cat) in RDP_INK_COLUMNS.items()}
+    names = list(categories) + sorted(n for n in extra_names if n not in categories)
     ink_ids: dict[str, str] = {}
-    for _col, (name, category) in RDP_INK_COLUMNS.items():
+    for name in names:
         ink = await db.scalar(select(Ink).where(Ink.ink_name == name).limit(1))
         if ink is None:
             ink = Ink(
                 ink_id=str(uuid4()),
                 ink_name=name,
-                ink_category=category,
+                ink_category=categories.get(name, "COLOR"),
                 memo="RDP-DB 가져오기로 자동 등록",
             )
             db.add(ink)
@@ -123,21 +209,71 @@ async def _import_content(content: bytes, db: AsyncSession):
             os.unlink(tmp_path)
 
     summary = RdpImportSummary()
-    ink_ids = await _ensure_inks(db, summary)
+    found_ink_names = {name for rec in records for name in rec.ink_amounts}
+    ink_ids = await _ensure_inks(db, summary, found_ink_names)
 
     # 캐시: 같은 요청 내 find-or-create 반복 조회 방지
     projects: dict[str, Project] = {}
     patterns: dict[tuple, Pattern] = {}
     plates: dict[tuple, Plate] = {}
     rounds: dict[tuple, Round] = {}
+    round_samples: dict[str, list[Sample]] = {}
+
+    # 기존 RDP 샘플의 레이어별 키맵.
+    # 레거시(행=샘플 1:1, success_notes=키 하나) 샘플은 0번 레이어로 간주해
+    # 재가져오기 때 새 구조로 자연 마이그레이션된다.
+    key_map: dict[str, tuple[Sample, int]] = {}
+    existing_rdp_samples = (
+        await db.scalars(select(Sample).where(Sample.success_notes.like("RDP:%")))
+    ).all()
+    for s in existing_rdp_samples:
+        keyed = False
+        for i, ly in enumerate(s.layers or []):
+            k = (ly or {}).get("rdp_key")
+            if k:
+                key_map[k] = (s, i)
+                keyed = True
+        if not keyed and s.success_notes and "\n" not in s.success_notes:
+            key_map[s.success_notes] = (s, 0)
+
+    touched: dict[str, Sample] = {}   # 집계 재계산 대상
+    created_ids: set[str] = set()
+    updated_ids: set[str] = set()
+
+    # 합치기 가능 여부 사전 판정: 같은 날(패턴+동판+작업일)에 어떤 도수든
+    # 2건 이상이면 그날은 합치지 않는다 (어느 1도 위에 어느 2도인지 추측 불가).
+    layer_counts: dict[tuple, Counter] = defaultdict(Counter)
+    for rec in records:
+        layer_counts[(rec.project, rec.pattern_code, rec.plate, rec.date)][
+            rec.layer_number
+        ] += 1
+
+    def _day_is_mergeable(rec) -> bool:
+        counts = layer_counts[(rec.project, rec.pattern_code, rec.plate, rec.date)]
+        return all(c == 1 for c in counts.values())
 
     for rec in records:
-        # 중복 검사: 이미 가져온 RDP 키는 건너뜀
-        existing = await db.scalar(
-            select(Sample.sample_id).where(Sample.success_notes == rec.rdp_key).limit(1)
-        )
-        if existing:
-            summary.samples_skipped += 1
+        layer = _build_layer(rec, ink_ids)
+
+        # 이미 가져온 행: 내용이 같으면 건너뛰고, 바뀌었으면 레이어 업데이트
+        if rec.rdp_key in key_map:
+            sample, idx = key_map[rec.rdp_key]
+            layers = list(sample.layers or [])
+            if idx < len(layers) and layers[idx] == layer:
+                summary.samples_skipped += 1
+                continue
+            if idx < len(layers):
+                layers[idx] = layer
+            else:
+                layers.append(layer)
+            sample.layers = layers
+            # 레거시 보정: 목표색을 베이스 색상 자리에 넣던 것을 해제
+            # (베이스 색은 베이스 마스터에서 관리, 목표색은 레이어 target_color_sci)
+            if sample.base_color_sci == rec.target_color:
+                sample.base_color_sci = None
+            touched[sample.sample_id] = sample
+            if sample.sample_id not in created_ids:
+                updated_ids.add(sample.sample_id)
             continue
 
         # Project
@@ -175,13 +311,17 @@ async def _import_content(content: bytes, db: AsyncSession):
                     pattern_name=pattern_name,
                     total_print_layers=2,
                     target_base_color_sci=rec.target_color,
+                    target_base_color_sce=rec.target_color_sce,
                     notes="RDP-DB 가져오기로 자동 생성",
                 )
                 db.add(pattern)
                 await db.flush()
                 summary.patterns_created += 1
-            elif rec.target_color and not pattern.target_base_color_sci:
-                pattern.target_base_color_sci = rec.target_color
+            else:
+                if rec.target_color and not pattern.target_base_color_sci:
+                    pattern.target_base_color_sci = rec.target_color
+                if rec.target_color_sce and not pattern.target_base_color_sce:
+                    pattern.target_base_color_sce = rec.target_color_sce
             patterns[pkey] = pattern
 
         # Plate (동판 마스터): 차종 > 패턴 > 동판 계층 유지
@@ -199,11 +339,19 @@ async def _import_content(content: bytes, db: AsyncSession):
                         plate_id=str(uuid4()),
                         pattern_id=pattern.pattern_id,
                         plate_code=rec.plate,
+                        emboss_type=rec.emboss_type,
+                        emboss_depth_um=rec.emboss_depth_um,
                         memo="RDP-DB 가져오기로 자동 생성",
                     )
                     db.add(plate)
                     await db.flush()
                     summary.plates_created += 1
+                else:
+                    # 기존 동판에 엠보스 정보가 없으면 채워넣기
+                    if plate.emboss_type is None and rec.emboss_type:
+                        plate.emboss_type = rec.emboss_type
+                    if plate.emboss_depth_um is None and rec.emboss_depth_um is not None:
+                        plate.emboss_depth_um = rec.emboss_depth_um
                 plates[plkey] = plate
 
         # Round (패턴 + 작업일 단위)
@@ -240,43 +388,66 @@ async def _import_content(content: bytes, db: AsyncSession):
                 summary.rounds_created += 1
             rounds[rkey] = round_
 
-        # Sample (배합 1건 = 단일 레이어 샘플)
-        max_sample_no = await db.scalar(
-            select(Sample.sample_number)
-            .where(Sample.round_id == round_.round_id)
-            .order_by(Sample.sample_number.desc())
-            .limit(1)
-        )
-        layer = {
-            "layer_number": rec.layer_number,
-            "ink_items": [
-                {"ink_id": ink_ids[name], "amount": amount}
-                for name, amount in rec.ink_amounts.items()
-            ],
-            "thinner_pct": rec.thinner_pct,
-            "hardener_pct": rec.hardener_pct,
-            "print_color_sci": rec.measured_color,
-            "print_color_sce": None,
-            "delta_E_from_target": rec.delta_e,
-            "note": f"배합 {rec.batch_no}"
-            + (" [기준배합]" if rec.is_base else "")
-            + (f" | {rec.note}" if rec.note else ""),
-        }
-        db.add(
-            Sample(
+        # Sample: 그날 각 도수가 1건씩뿐이면 같은 라운드의 RDP 샘플 중
+        # 이 도수가 비어 있는 샘플에 레이어를 합친다 (1도+2도 = 시편 하나).
+        # 모호한 날(같은 도수 2건 이상)이거나 합칠 샘플이 없으면 새 샘플.
+        rsamples = round_samples.get(round_.round_id)
+        if rsamples is None:
+            rsamples = list(
+                (
+                    await db.scalars(
+                        select(Sample)
+                        .where(Sample.round_id == round_.round_id)
+                        .where(Sample.success_notes.like("RDP:%"))
+                    )
+                ).all()
+            )
+            round_samples[round_.round_id] = rsamples
+
+        sample = None
+        if _day_is_mergeable(rec):
+            sample = next(
+                (
+                    s
+                    for s in rsamples
+                    if all(
+                        ly.get("layer_number") != rec.layer_number
+                        for ly in (s.layers or [])
+                    )
+                ),
+                None,
+            )
+        if sample is None:
+            max_sample_no = await db.scalar(
+                select(Sample.sample_number)
+                .where(Sample.round_id == round_.round_id)
+                .order_by(Sample.sample_number.desc())
+                .limit(1)
+            )
+            sample = Sample(
                 sample_id=str(uuid4()),
                 round_id=round_.round_id,
                 pattern_id=pattern.pattern_id,
                 sample_number=(max_sample_no or 0) + 1,
-                base_color_sci=rec.target_color,
+                # 베이스 색은 베이스 마스터에서 — 목표색은 레이어 target_color_sci에
+                base_color_sci=None,
                 base_color_sce=None,
                 layers=[layer],
-                final_delta_e=rec.delta_e,
-                success_flag=rec.success_flag,
-                success_notes=rec.rdp_key,
             )
-        )
-        summary.samples_created += 1
+            db.add(sample)
+            rsamples.append(sample)
+            created_ids.add(sample.sample_id)
+            summary.samples_created += 1
+        else:
+            sample.layers = list(sample.layers or []) + [layer]
+            if sample.sample_id not in created_ids:
+                updated_ids.add(sample.sample_id)
+        key_map[rec.rdp_key] = (sample, len(sample.layers) - 1)
+        touched[sample.sample_id] = sample
+
+    for sample in touched.values():
+        _recompute_sample(sample)
+    summary.samples_updated = len(updated_ids)
 
     await db.commit()
     return {
@@ -285,6 +456,7 @@ async def _import_content(content: bytes, db: AsyncSession):
         "plates_created": summary.plates_created,
         "rounds_created": summary.rounds_created,
         "samples_created": summary.samples_created,
+        "samples_updated": summary.samples_updated,
         "samples_skipped": summary.samples_skipped,
         "inks_created": summary.inks_created,
         "total_rows": len(records),
