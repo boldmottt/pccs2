@@ -94,7 +94,9 @@ function NewPatternForm({ projectId, onClose }: { projectId: string; onClose: ()
   const mutation = useMutation({
     mutationFn: (data: PatternCreate) => patternsApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['patterns', projectId] })
+      // prefix로 무효화해 프로젝트별 목록(['patterns', projectId])과
+      // 인자 없는 패턴 선택 목록(['patterns'])이 모두 갱신되게 한다.
+      queryClient.invalidateQueries({ queryKey: ['patterns'] })
       onClose()
     },
   })
