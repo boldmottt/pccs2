@@ -45,5 +45,8 @@ class KubelkaMunkCoefficients:
         Returns:
             Reflectance value (0-1)
         """
-        a = 1.0 + K_over_S
+        # K/S는 물리적으로 음수가 될 수 없다. 음수 입력(잘못된 합산 등)이
+        # 들어오면 a < 1 이 되어 sqrt(a^2-1)가 음수의 제곱근으로 깨지므로
+        # 0으로 클램프해 방어한다 (K/S=0 → R_inf=1, 완전 반사).
+        a = 1.0 + max(0.0, K_over_S)
         return a - math.sqrt(a**2 - 1)

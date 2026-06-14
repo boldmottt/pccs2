@@ -336,6 +336,43 @@ class TestGetConfidence:
         assert not (confidence != confidence), "Confidence should not be NaN"
         assert confidence >= 0.0  # May be 0 if model overfits or has issues
 
+    @pytest.mark.unit
+    def test_confidence_few_samples_is_zero(self):
+        """표본이 부족하면(<4) 신뢰도는 보수적으로 0이어야 한다."""
+        engine = MLCorrectionEngine()
+        sample = {
+            "recipe": {
+                "layers": [{"ink_id": "red", "k_over_s": 0.5, "thickness": 1.0}],
+                "base_color": {"L": 100.0, "a": 0.0, "b": 0.0},
+            },
+            "km_prediction": {"L": 50.0, "a": 10.0, "b": 20.0},
+            "actual_measurement": {"L": 48.0, "a": 12.0, "b": 18.0},
+        }
+        engine.train([sample, dict(sample)])  # 2 samples < 4
+        assert engine._get_confidence() == 0.0
+
+    @pytest.mark.unit
+    def test_confidence_is_cached_and_in_range(self):
+        """신뢰도는 학습 시 한 번 계산돼 캐시되고 [0,1] 범위여야 한다 (0 더미가 아님)."""
+        engine = MLCorrectionEngine()
+        data = []
+        for i in range(6):
+            data.append({
+                "recipe": {
+                    "layers": [{"ink_id": f"ink{i}", "k_over_s": 0.3 + 0.1 * i, "thickness": 1.0}],
+                    "base_color": {"L": 100.0, "a": 0.0, "b": 0.0},
+                },
+                "km_prediction": {"L": 50.0, "a": 10.0, "b": 20.0},
+                "actual_measurement": {"L": 50.0 - i, "a": 10.0 + i, "b": 20.0 - i},
+            })
+        engine.train(data)
+        c = engine._get_confidence()
+        assert 0.0 <= c <= 1.0
+        # 캐시되어 같은 값이 반복 반환된다 (예측마다 재계산하지 않음)
+        assert engine._get_confidence() == c
+        # 더미 헬퍼가 제거되었는지 확인
+        assert not hasattr(engine, "_prepare_training_data_from_model")
+
 
 class TestPredictAfterTraining:
     """Tests for predict method after training."""

@@ -27,6 +27,11 @@ class MLCorrectionEngine:
         self.model_b = None
         self.is_trained: bool = False
         self._n_features: int = 0
+        # 학습에 쓴 실제 (X, y)와 그로부터 한 번 계산해 캐시한 신뢰도.
+        # 신뢰도는 예측마다 다시 계산하지 않고 학습 시점에 고정한다.
+        self._train_X = None
+        self._train_y = None
+        self._confidence: float = 0.0
 
     def train(self, historical_data: List[Dict]) -> None:
         """Train ML model on historical data.
@@ -73,7 +78,11 @@ class MLCorrectionEngine:
 
         # Store feature count for later validation
         self._n_features = X.shape[1]
+        # 실제 학습 데이터를 보관하고, 그로부터 신뢰도를 한 번 계산해 캐시한다.
+        self._train_X = X
+        self._train_y = y
         self.is_trained = True
+        self._confidence = self._compute_confidence()
 
     def predict(self, recipe_features: Dict) -> Dict:
         """Predict corrected color for a recipe.
@@ -224,60 +233,65 @@ class MLCorrectionEngine:
         return np.array(features, dtype=float)
 
     def _get_confidence(self) -> float:
-        """Calculate prediction confidence score.
+        """Return the cached confidence score (computed once at train time).
 
         Returns:
-            Confidence score between 0.0 (low) and 1.0 (high)
-            Returns 0.0 if model is not trained or not enough samples
+            Confidence score between 0.0 (low) and 1.0 (high).
+            0.0 if the model is not trained.
         """
-        if not self.is_trained:
+        return self._confidence if self.is_trained else 0.0
+
+    # 신뢰도를 신뢰할 만하게 만드는 최소 표본 수. 이보다 적으면 교차검증이
+    # 의미가 없어(과적합) 보수적으로 0을 반환한다.
+    _MIN_SAMPLES_FOR_CONFIDENCE = 4
+
+    def _compute_confidence(self) -> float:
+        """Cross-validated R^2 across the three channel models, averaged.
+
+        실제 학습 데이터(self._train_X/_train_y)에 대해 교차검증 R^2을 구한다.
+        in-sample 점수는 GradientBoosting 과적합으로 항상 ~1.0이라 의미가 없어,
+        held-out 성능(교차검증)으로 신뢰도를 추정한다. 표본이 부족하면 0.
+
+        Returns:
+            Confidence in [0.0, 1.0].
+        """
+        if self._train_X is None or self._train_y is None:
+            return 0.0
+        n = self._train_X.shape[0]
+        if n < self._MIN_SAMPLES_FOR_CONFIDENCE:
             return 0.0
 
-        # Need at least 2 samples for meaningful R^2 calculation
-        if self._n_features == 0:
-            return 0.0
+        from sklearn.base import clone
+        from sklearn.model_selection import cross_val_score
 
-        # Use average R^2 score across all three models as confidence indicator
+        # 각 테스트 폴드에 표본이 최소 2개는 들어가도록 cv를 잡는다 (n//2).
+        # 그래야 폴드별 R^2이 의미를 갖고 sklearn의 단일표본 경고도 피한다.
+        cv = max(2, min(5, n // 2))
         scores = []
-
-        if hasattr(self, "model_l") and self.model_l is not None:
+        for model, col in (
+            (self.model_l, 0),
+            (self.model_a, 1),
+            (self.model_b, 2),
+        ):
+            if model is None:
+                continue
             try:
-                r2 = self.model_l.score(*self._prepare_training_data_from_model())
+                r2 = float(
+                    np.mean(
+                        cross_val_score(
+                            clone(model),
+                            self._train_X,
+                            self._train_y[:, col],
+                            cv=cv,
+                            scoring="r2",
+                        )
+                    )
+                )
                 if not np.isnan(r2):
-                    scores.append(float(r2))
-            except (ValueError, RuntimeError):
-                pass
-
-        if hasattr(self, "model_a") and self.model_a is not None:
-            try:
-                r2 = self.model_a.score(*self._prepare_training_data_from_model())
-                if not np.isnan(r2):
-                    scores.append(float(r2))
-            except (ValueError, RuntimeError):
-                pass
-
-        if hasattr(self, "model_b") and self.model_b is not None:
-            try:
-                r2 = self.model_b.score(*self._prepare_training_data_from_model())
-                if not np.isnan(r2):
-                    scores.append(float(r2))
+                    scores.append(r2)
             except (ValueError, RuntimeError):
                 pass
 
         if not scores:
             return 0.0
-
-        avg_r2 = float(np.mean(scores))
-        return float(np.clip(avg_r2, 0.0, 1.0))
-
-    def _prepare_training_data_from_model(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Helper to get training data shape for confidence calculation.
-
-        Note: This is a simplified version that just returns shape info.
-        For real confidence, we'd need to store training data.
-        """
-        # Return dummy data with correct feature count
-        n_features = self._n_features if self._n_features > 0 else 6
-        X = np.zeros((1, n_features))
-        y = np.zeros(1)  # 1D array for single-output models
-        return X, y
+        return float(np.clip(float(np.mean(scores)), 0.0, 1.0))
