@@ -58,8 +58,8 @@ PCCS2/
 ### Prerequisites
 
 - Python 3.11+
-- PostgreSQL 14+
 - Node.js 18+
+- PostgreSQL 14+ — **운영 환경에서만 필요** (로컬 단독 실행은 SQLite 기본값으로 동작)
 
 ### Backend Setup
 
@@ -73,17 +73,21 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Set environment variables
-cp .env.example .env
-# Edit .env with your database URL
-# (개발용 SQLite: DATABASE_URL=sqlite:///./pccs2.db — 테이블은 기동 시 자동 생성)
+# (선택) 환경변수 — 로컬은 설정 없이도 바로 동작한다.
+# 기본 DATABASE_URL 이 SQLite(./pccs2.db)이고 테이블은 기동 시 자동 생성된다.
+# 값을 바꾸려면 예시를 복사: cp .env.example .env
+# PostgreSQL 을 쓰려면 .env 에서 DATABASE_URL 만 바꾸면 된다.
 
-# Start development server
+# Start development server (별도 DB 설정 없이 바로 뜬다)
 uvicorn app.main:app --reload
 
 # Run tests
 pytest tests/ --cov=app
 ```
+
+> **RDP-DB 화면을 쓰려면**: 백엔드 `.env` 에 `RDP_DB_PATH=<rdp.db 경로>` 를 설정하세요.
+> 설정하지 않으면 `~/MySecondBrain/Areas/NIFCO/RDP-DB/rdp.db` 를 시도하며, 그 파일이 없으면
+> RDP 가져오기·RDP-DB 화면이 "파일을 찾을 수 없습니다" 로 표시됩니다 (다른 기능은 정상).
 
 API Documentation: http://localhost:8000/docs
 

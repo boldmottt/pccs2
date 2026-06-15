@@ -21,8 +21,12 @@ pip install -r requirements.txt -q --timeout 60 --retries 10
 
 if [ ! -f .env ]; then
     cat > .env <<EOF
-DATABASE_URL=sqlite:///./pccs2.db
+# 로컬 단독 실행용 (SQLite — PostgreSQL 불필요)
+DATABASE_URL=sqlite+aiosqlite:///./pccs2.db
+CORS_ORIGINS=http://localhost:3000
 SECRET_KEY=dev-secret-key
+# RDP-DB 화면을 쓰려면 아래 주석을 풀고 본인 rdp.db 경로로 수정:
+# RDP_DB_PATH=~/MySecondBrain/Areas/NIFCO/RDP-DB/rdp.db
 EOF
 fi
 
