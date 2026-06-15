@@ -28,12 +28,20 @@ async def match_recipe(request: MatchRequest, db: AsyncSession = Depends(get_db_
         for ink in result.scalars().all()
     ]
 
-    recipes = recommend_recipes(
-        target_color=request.target_color,
-        inks=inks,
-        exclude_inks=request.exclude_inks,
-        max_components=request.max_components,
-    )
+    try:
+        recipes = recommend_recipes(
+            target_color=request.target_color,
+            inks=inks,
+            exclude_inks=request.exclude_inks,
+            max_components=request.max_components,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        # target_color에 L/a/b가 없거나 잉크 측색값이 불완전한 경우 등 —
+        # 서버 오류(500)가 아니라 잘못된 요청(400)으로 변환한다.
+        raise HTTPException(
+            status_code=400,
+            detail=f"배합 추천에 필요한 색상 데이터가 올바르지 않습니다: {exc}",
+        )
 
     return MatchResponse(
         result_id=str(uuid4()),

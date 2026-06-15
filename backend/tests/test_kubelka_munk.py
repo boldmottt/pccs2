@@ -158,6 +158,12 @@ class TestCalculateReflectanceInfinite:
         # Should be very close to 0
         assert result < 0.01
 
+    @pytest.mark.unit
+    def test_calculate_reflectance_negative_k_over_s_clamped(self):
+        """음수 K/S는 sqrt(음수)로 깨지지 않고 0으로 클램프돼 R_inf=1을 반환."""
+        result = KubelkaMunkCoefficients.calculate_reflectance_infinite(-5.0)
+        assert result == pytest.approx(1.0, abs=1e-9)
+
 
 class TestKubelkaMunkEngine:
     """Tests for KubelkaMunkEngine class."""

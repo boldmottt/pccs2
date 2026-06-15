@@ -10,7 +10,9 @@ class InkItemForMatch(BaseModel):
 class MatchRequest(BaseModel):
     pattern_id: str
     target_color: Dict[str, float]
-    layer_number: int = Field(..., ge=1)
+    # 추천 로직은 아직 도수별로 분기하지 않는다. 클라이언트 호환을 위해 받되
+    # 선택 필드로 둔다 (필수였으나 미사용이었음).
+    layer_number: Optional[int] = Field(None, ge=1)
     exclude_inks: Optional[List[str]] = None
     max_components: Optional[int] = Field(None, ge=1, le=4)
 
