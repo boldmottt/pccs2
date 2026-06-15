@@ -164,7 +164,10 @@ async def upload_rdp_excel(
 
     resolved = _resolve_rdp_path(path)
     resolved.parent.mkdir(parents=True, exist_ok=True)
-    summary = upsert_rdp_rows(str(resolved), rows)
+    try:
+        summary = upsert_rdp_rows(str(resolved), rows)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return {
         "path": str(resolved),
         "total_rows": len(rows),
@@ -188,7 +191,10 @@ async def sync_back_to_rdp(
         raise HTTPException(status_code=404, detail=f"파일을 찾을 수 없습니다: {resolved}")
 
     rows, skipped = await _collect_pccs2_rows(db)
-    summary = upsert_rdp_rows(str(resolved), rows, only_non_null=True)
+    try:
+        summary = upsert_rdp_rows(str(resolved), rows, only_non_null=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return {
         "path": str(resolved),
         "total_rows": len(rows),

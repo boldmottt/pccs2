@@ -3,6 +3,7 @@
 import io
 import sqlite3
 
+import pytest
 from openpyxl import Workbook, load_workbook
 
 from tests.test_rdp_import import RDP_SCHEMA, _upload, rdp_db_file  # noqa: F401
@@ -110,6 +111,30 @@ def test_excel_upload_inserts_and_updates(api_client, tmp_path):
     conn.close()
     assert ye == 28.0
     assert summary == "YE+3g"
+
+
+def test_upsert_rolls_back_on_failure(tmp_path):
+    """배치 중간에 쓰기가 실패하면 그 배치 전체가 롤백돼 rdp.db가 일부만
+    쓰인 상태로 남지 않아야 한다."""
+    from app.services.rdp_excel import upsert_rdp_rows
+
+    db = str(tmp_path / "rdp.db")
+    good = {
+        "date": "2026-05-11", "project": "P", "pattern_code": "C",
+        "plate": "PL", "layer": "1도", "batch_no": "1", "mt": 1.0,
+    }
+    upsert_rdp_rows(db, [good])  # 스키마 생성 + 기준 행 1개
+
+    # 같은 배치: 새 정상행 + date=None(NOT NULL 위반). 전체가 롤백돼야 한다.
+    new_ok = dict(good, batch_no="2")
+    bad = dict(good, batch_no="3", date=None)
+    with pytest.raises(ValueError):
+        upsert_rdp_rows(db, [new_ok, bad])
+
+    conn = sqlite3.connect(db)
+    count = conn.execute("SELECT COUNT(*) FROM rdp_mixes").fetchone()[0]
+    conn.close()
+    assert count == 1  # 기준 행만 남고 실패 배치(new_ok 포함)는 통째로 롤백
 
 
 def test_excel_upload_validates_required(api_client, tmp_path):

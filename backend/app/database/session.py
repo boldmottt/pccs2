@@ -45,9 +45,17 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency yielding a request-scoped database session."""
+    """FastAPI dependency yielding a request-scoped database session.
+
+    커밋 실패나 핸들러 예외 시 명시적으로 롤백해 세션이 오염된(부분 트랜잭션)
+    상태로 닫히지 않게 한다.
+    """
     async with get_session_factory()() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def dispose_engine() -> None:

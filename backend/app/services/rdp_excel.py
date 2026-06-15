@@ -344,49 +344,60 @@ def upsert_rdp_rows(
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
+        # 스키마 보강(CREATE/ALTER)은 멱등이고 컬럼 추가만 하므로 먼저 커밋한다.
+        # 이후 행 쓰기가 실패해 롤백되더라도 빈 컬럼만 남아 데이터는 안전하다.
         conn.execute(RDP_MIXES_SCHEMA)
         added_columns = _ensure_columns(conn, extra_inks)
+        conn.commit()
+
         data_columns = [
             c for c in COLUMN_NAMES + extra_inks if c not in KEY_COLUMNS and c != "date"
         ]
         inserted = 0
         updated = 0
         unchanged = 0
-        for row in rows:
-            key_values = [row[k] for k in KEY_COLUMNS]
-            existing = conn.execute(
-                "SELECT * FROM rdp_mixes WHERE project=? AND pattern_code=? AND plate=?"
-                " AND layer=? AND batch_no=?",
-                key_values,
-            ).fetchone()
-            if existing is None:
-                cols = ["date"] + KEY_COLUMNS + data_columns
-                placeholders = ",".join("?" for _ in cols)
-                conn.execute(
-                    f"INSERT INTO rdp_mixes ({','.join(cols)}) VALUES ({placeholders})",
-                    [row.get(c) for c in cols],
-                )
-                inserted += 1
-                continue
+        try:
+            # 행 단위 작업 전체를 하나의 트랜잭션으로 — 중간 실패 시 전부 롤백해
+            # 사용자의 실제 rdp.db가 일부만 쓰인 상태로 남지 않게 한다.
+            with conn:
+                for row in rows:
+                    key_values = [row[k] for k in KEY_COLUMNS]
+                    existing = conn.execute(
+                        "SELECT * FROM rdp_mixes WHERE project=? AND pattern_code=? AND plate=?"
+                        " AND layer=? AND batch_no=?",
+                        key_values,
+                    ).fetchone()
+                    if existing is None:
+                        cols = ["date"] + KEY_COLUMNS + data_columns
+                        placeholders = ",".join("?" for _ in cols)
+                        conn.execute(
+                            f"INSERT INTO rdp_mixes ({','.join(cols)}) VALUES ({placeholders})",
+                            [row.get(c) for c in cols],
+                        )
+                        inserted += 1
+                        continue
 
-            set_cols = ["date"] + data_columns
-            if only_non_null:
-                set_cols = [c for c in set_cols if row.get(c) is not None]
-            ek = existing.keys()
-            changed = any(
-                (existing[c] if c in ek else None) != row.get(c) for c in set_cols
-            )
-            if not changed:
-                unchanged += 1
-                continue
-            assignments = ",".join(f"{c}=?" for c in set_cols)
-            conn.execute(
-                f"UPDATE rdp_mixes SET {assignments} WHERE project=? AND pattern_code=?"
-                " AND plate=? AND layer=? AND batch_no=?",
-                [row.get(c) for c in set_cols] + key_values,
-            )
-            updated += 1
-        conn.commit()
+                    set_cols = ["date"] + data_columns
+                    if only_non_null:
+                        set_cols = [c for c in set_cols if row.get(c) is not None]
+                    ek = existing.keys()
+                    changed = any(
+                        (existing[c] if c in ek else None) != row.get(c) for c in set_cols
+                    )
+                    if not changed:
+                        unchanged += 1
+                        continue
+                    assignments = ",".join(f"{c}=?" for c in set_cols)
+                    conn.execute(
+                        f"UPDATE rdp_mixes SET {assignments} WHERE project=? AND pattern_code=?"
+                        " AND plate=? AND layer=? AND batch_no=?",
+                        [row.get(c) for c in set_cols] + key_values,
+                    )
+                    updated += 1
+        except sqlite3.Error as exc:
+            # with conn 블록이 이미 롤백했다. 라우터가 깨끗한 4xx로 변환하도록
+            # 도메인 예외로 다시 던진다.
+            raise ValueError(f"rdp.db 쓰기 실패 (변경사항 롤백됨): {exc}") from exc
         return {
             "inserted": inserted,
             "updated": updated,
