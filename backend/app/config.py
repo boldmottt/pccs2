@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/pccs2"
+    # 로컬 단독 실행이 별도 설정 없이 바로 되도록 기본값은 SQLite다.
+    # 운영(PostgreSQL)·CI·docker-compose는 DATABASE_URL 환경변수로 명시 설정한다.
+    DATABASE_URL: str = "sqlite+aiosqlite:///./pccs2.db"
 
     # API
     API_URL: str = "http://localhost:8000"
