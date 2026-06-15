@@ -8,6 +8,9 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, id, ...props }, ref) => {
+    // 숫자 필드는 모바일에서 숫자 키패드가 뜨도록 inputMode를 기본 지정한다.
+    const inputMode =
+      props.inputMode ?? (props.type === 'number' ? 'decimal' : undefined)
     return (
       <div className="w-full">
         {label && (
@@ -18,6 +21,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           id={id}
           ref={ref}
+          inputMode={inputMode}
           className={cn(
             'flex h-10 w-full rounded-lg border border-gray-300 bg-white',
             'px-3 py-2 text-sm placeholder:text-gray-400',
