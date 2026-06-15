@@ -38,6 +38,7 @@ function LabInputs({
           <label className="block text-xs text-gray-500 mb-1">L*</label>
           <input
             type="number"
+            inputMode="decimal"
             value={value.L}
             onChange={e => onChange({ ...value, L: Number(e.target.value) })}
             className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"
@@ -50,6 +51,7 @@ function LabInputs({
           <label className="block text-xs text-gray-500 mb-1">a*</label>
           <input
             type="number"
+            inputMode="decimal"
             value={value.a}
             onChange={e => onChange({ ...value, a: Number(e.target.value) })}
             className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"
@@ -62,6 +64,7 @@ function LabInputs({
           <label className="block text-xs text-gray-500 mb-1">b*</label>
           <input
             type="number"
+            inputMode="decimal"
             value={value.b}
             onChange={e => onChange({ ...value, b: Number(e.target.value) })}
             className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"

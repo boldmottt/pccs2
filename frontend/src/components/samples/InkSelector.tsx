@@ -60,6 +60,7 @@ export function InkSelector({ inks, onSelect, defaultAmount = 10 }: InkSelectorP
         <label className="block text-xs text-gray-500 mb-1">량 (g)</label>
         <input
           type="number"
+          inputMode="decimal"
           value={amount}
           onChange={e => setAmount(Math.max(0, Number(e.target.value)))}
           className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"

@@ -182,6 +182,7 @@ export default function MatchPage() {
                   <label className="block text-xs text-gray-500 mb-1">L*</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={targetColor.L}
                     onChange={e => setTargetColor({ ...targetColor, L: Number(e.target.value) })}
                     className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"
@@ -194,6 +195,7 @@ export default function MatchPage() {
                   <label className="block text-xs text-gray-500 mb-1">a*</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={targetColor.a}
                     onChange={e => setTargetColor({ ...targetColor, a: Number(e.target.value) })}
                     className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"
@@ -206,6 +208,7 @@ export default function MatchPage() {
                   <label className="block text-xs text-gray-500 mb-1">b*</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={targetColor.b}
                     onChange={e => setTargetColor({ ...targetColor, b: Number(e.target.value) })}
                     className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"
@@ -222,6 +225,7 @@ export default function MatchPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">레이어 번호</label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={layerNumber}
                   onChange={e => setLayerNumber(e.target.value)}
                   className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"
