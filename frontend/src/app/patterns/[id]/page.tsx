@@ -98,7 +98,7 @@ function EditPatternForm({ pattern, onClose }: { pattern: Pattern; onClose: () =
   const [status, setStatus] = useState<Pattern['status']>(pattern.status)
   const [baseMaterial, setBaseMaterial] = useState(pattern.target_base_material ?? '')
   const [sci, setSci] = useState(pattern.target_base_color_sci ?? { L: 0, a: 0, b: 0 })
-  const [hasSci] = useState(!!pattern.target_base_color_sci)
+  const [hasSci, setHasSci] = useState(!!pattern.target_base_color_sci)
   const [notes, setNotes] = useState(pattern.notes ?? '')
   const [nameError, setNameError] = useState<string | undefined>()
 
@@ -174,6 +174,16 @@ function EditPatternForm({ pattern, onClose }: { pattern: Pattern; onClose: () =
               </select>
             </div>
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={hasSci}
+              onChange={e => setHasSci(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            목표 색상 지정
+          </label>
 
           {hasSci && (
             <div>
