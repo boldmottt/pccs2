@@ -1,0 +1,24 @@
+## PCCS2 프론트엔드 (Next.js) — Fly.io 배포 설정
+## 배포: fly deploy -c fly.frontend.toml
+##
+## NEXT_PUBLIC_API_URL 은 빌드 시점에 클라이언트 번들에 박힌다.
+## 백엔드 app 이름을 바꿨다면 아래 주소도 같이 바꿔야 한다.
+app = "pccs2-web"
+primary_region = "nrt"  # 도쿄
+
+[build]
+  dockerfile = "Dockerfile.frontend"
+  [build.args]
+    NEXT_PUBLIC_API_URL = "https://pccs2-backend.fly.dev"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

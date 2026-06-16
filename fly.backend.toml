@@ -1,0 +1,35 @@
+## PCCS2 백엔드 (FastAPI) — Fly.io 배포 설정
+## 배포: fly deploy -c fly.backend.toml
+##
+## app 이름을 바꾸면 fly.frontend.toml 의 NEXT_PUBLIC_API_URL 과
+## 이 앱의 CORS_ORIGINS 시크릿도 같이 바꿔야 한다.
+app = "pccs2-backend"
+primary_region = "nrt"  # 도쿄 (한국에서 가장 가까운 리전)
+
+[build]
+  dockerfile = "Dockerfile.backend"
+
+# 비밀값(DATABASE_URL, CORS_ORIGINS, SECRET_KEY)은 코드에 두지 않고
+# `fly secrets set` 으로 주입한다. (DATABASE_URL 은 Postgres attach 시 자동 설정)
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # 요청이 없으면 머신을 멈춰 비용을 아끼고, 접속 시 자동으로 깨운다.
+  # 항상 켜두려면 min_machines_running = 1 로 바꾼다.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/api/predict/health"
+
+[[vm]]
+  # ML 라이브러리(numpy/scipy/sklearn/xgboost) 로딩 여유분 포함
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
